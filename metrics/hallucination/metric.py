@@ -203,7 +203,9 @@ class HallucinationMetric(BaseMetric):
                 verdicts = [HallucinationVerdict(**item) for item in data["verdicts"]]
                 return verdicts
 
-    async def _a_generate_truths(self, retrieval_context: str) -> List[str]:
+    async def _a_generate_truths(
+        self, retrieval_context: Union[str, list]
+    ) -> List[str]:
         if isinstance(retrieval_context, list):
             prompt = HallucinationTemplate.generate_truths(
                 text="\n\n".join(retrieval_context)
@@ -281,7 +283,7 @@ class HallucinationMetric(BaseMetric):
 
         faithfulness_count = 0
         for verdict in self.verdicts:
-            if verdict.verdict.strip().lower() != "no":
+            if verdict.verdict.strip().lower() == "yes":
                 faithfulness_count += 1
 
         score = faithfulness_count / number_of_verdicts

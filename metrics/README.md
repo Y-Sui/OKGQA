@@ -4,6 +4,6 @@ This folder holds metrics for assessing the quality of LLM generation for the OK
 
 The metrics are defined as follows:
 
-- **HallucinationMetric**: in the context of generative model, hallucinations refers to the generation or claims that are not supported by the provided retrieval context or source material. The severity of hallucination is measured by the faithfulness score, which ranges from 0 to 1, with a higher score indicating better alignment with the source material, while contraditions and unsupported claims often directly leads to a lower faithfulness score.
+- **HallucinationMetric**: in the context of generative model, hallucinations refers to the generation or claims that are not supported by the provided retrieval context or source material. The severity of hallucination is measured by the faithfulness score, which ranges from 0 to 1, with a higher score indicating better alignment with the source material, while contradictions and unsupported claims often directly leads to a lower faithfulness score.
    - $$\text{score} = \frac{\text{Number of Truthful Claims}}{\text{Total Number of Claims}}$$
    - The metric first uses an LLM to extract all claims made in model's generation and then classify whether each claim is trustworthy based on the facts from retrieved context or source material.

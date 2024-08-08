@@ -60,7 +60,6 @@ JSON:
     def generate_verdicts(claims, retrieval_context):
         return f"""Based on the given claims, which is a list of strings, generate a list of JSON objects to indicate whether EACH claim contradicts any facts in the retrieval context. The JSON will have 2 fields: 'verdict' and 'reason'.
 The 'verdict' key should STRICTLY be either 'yes', 'no', or 'idk', which states whether the given claim agrees with the context. 
-Provide a 'reason' ONLY if the answer is 'no'. 
 The provided claim is drawn from the actual output. Try to provide a correction in the reason using the facts in the retrieval context.
 
 **
@@ -72,13 +71,16 @@ Example:
 {{
     "verdicts": [
         {{
-            "verdict": "idk"
+            "verdict": "idk",
+            "reason": "The actual output claims Barack Obama is a caucasian, which is not mentioned in the retrieval context."
         }},
         {{
-            "verdict": "idk"
+            "verdict": "idk",
+            "reason": "The actual output claims Zurich is a city in London, which is not mentioned in the retrieval context."
         }},
         {{
-            "verdict": "yes"
+            "verdict": "yes".
+            "reason": "The actual output claims Einstein won the Nobel Prize for his discovery of the photoelectric effect, which is correct as the retrieval context states it."
         }},
         {{
             "verdict": "no",
@@ -93,7 +95,6 @@ Example:
 ===== END OF EXAMPLE ======
 
 The length of 'verdicts' SHOULD BE STRICTLY EQUAL to that of claims.
-You DON'T have to provide a reason if the answer is 'yes' or 'idk'.
 ONLY provide a 'no' answer if the retrieval context DIRECTLY CONTRADICTS the claims. YOU SHOULD NEVER USE YOUR PRIOR KNOWLEDGE IN YOUR JUDGEMENT.
 Claims made using vague, suggestive, speculative language such as 'may have', 'possibility due to', does NOT count as a contradiction.
 Claims that is not backed up due to a lack of information/is not mentioned in the retrieval contexts MUST be answered 'idk', otherwise I WILL DIE.
