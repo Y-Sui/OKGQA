@@ -4,8 +4,9 @@ import torch
 import json
 from sentence_transformers import SentenceTransformer, util
 
-valid_retrieval_models = [
-    "bm25",
+valid_bm25_retrieval_models = ["bm25"]
+
+valid_st_retrieval_models = [
     "msmarco-distilbert-base-v3",
     "gtr-t5-large",
 ]
@@ -17,14 +18,14 @@ class Retriever:
         wikipedia_path: str,
         verbose: bool,
     ) -> None:
-        """_summary_
+        """
         for each query, the top-k documents are stored in the cache, the cache is a dictionary with keys as the query and values as the top-k documents
         the key is a string of the form "entity##query##top-k##model_name"
         the value is a list of strings, each string is a corpus paragraph
         """
         self.wikipedia_path = wikipedia_path
         self.verbose = verbose
-        self.cache_path = wikipedia_path + "/.cache"
+        self.cache_path = wikipedia_path + "/.cache/retriever_cache.json"
         self.cache = self._load_cache()
 
     def _load_documents(self, entity: str) -> list[str]:
@@ -32,7 +33,7 @@ class Retriever:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File {file_path} not found")
         with open(file_path, "r") as f:
-            paragraphs = f.read().split("\n\n")
+            paragraphs = f.read().split("\n")
 
         return paragraphs
 
@@ -46,8 +47,10 @@ class Retriever:
             json.dump(self.cache, f)
 
     def _load_cache(self):
+        if not os.path.exists(self.cache_path):
+            os.mkdir(os.path.dirname(self.cache_path))
+
         if os.path.exists(self.cache_path):
-            print(f"Loading cache from {self.cache_path}...")
             with open(self.cache_path, "r") as f:
                 cache = json.load(f)
         else:
@@ -79,14 +82,11 @@ class BM25Retriever(Retriever):
         results, scores = self.bm25.retrieve(tokenized_query, corpus=corpus, k=top_k)
         return results, scores
 
-    def _save_cache(self):
-        if os.path.exists(self.cache_path):
-            with open(self.cache_path, "r") as f:
-                new_cache = json.load(f)
-            self.cache.update(new_cache)
-
     def retrieve(
-        self, entity: str, query: str, top_k: int = 5, verbose: bool = True
+        self,
+        entity: str,
+        query: str,
+        top_k: int = 5,
     ) -> list[str]:
         corpus = self._load_documents(entity)
         self._bm25_fit(corpus=self._load_documents(entity))
@@ -107,7 +107,6 @@ class BM25Retriever(Retriever):
 
 
 class SentenceTransformerRetriever(Retriever):
-
     def __init__(
         self,
         wikipedia_path: str,
@@ -151,16 +150,25 @@ class SentenceTransformerRetriever(Retriever):
 
 
 def retrieve(
-    model_name: str, entity: str, query: str, top_k: int = 5, verbose: bool = True
+    model_name: str,
+    entity: str,
+    query: str,
+    top_k: int = 5,
+    verbose: bool = True,
 ) -> list[str]:
-    if model_name == "bm25":
-        retriever = BM25Retriever(wikipedia_path="OKG/wikipedia", verbose=verbose)
-    elif model_name in valid_retrieval_models:
+    if model_name in valid_bm25_retrieval_models:
+        retriever = BM25Retriever(
+            wikipedia_path="OKG/wikipedia",
+            verbose=verbose,
+        )
+    elif model_name in valid_st_retrieval_models:
         retriever = SentenceTransformerRetriever(
-            wikipedia_path="OKG/wikipedia", verbose=verbose, model_name=model_name
+            wikipedia_path="OKG/wikipedia",
+            verbose=verbose,
+            model_name=model_name,
         )
     else:
-        raise ValueError(f"Model {model_name} not supported")
+        raise ValueError(f"Retriever model `{model_name}' is not supported")
 
     return retriever.retrieve(entity=entity, query=query, top_k=top_k)
 

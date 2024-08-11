@@ -213,10 +213,15 @@ class HallucinationMetric(BaseMetric):
         elif isinstance(retrieval_context, str):
             prompt = HallucinationTemplate.generate_truths(text=retrieval_context)
         if self.using_native_model:
-            res, cost = await self.model.a_generate(prompt)
-            self.evaluation_cost += cost
-            data = trimAndLoadJson(res, self)
-            return data["truths"]
+            try:
+                res, cost = await self.model.a_generate(prompt)
+                self.evaluation_cost += cost
+                data = trimAndLoadJson(res, self)
+                return data["truths"]
+            except:
+                res = await self.model.a_generate(prompt)
+                data = trimAndLoadJson(res, self)
+                return data["truths"]
         else:
             try:
                 res: Truths = await self.model.a_generate(prompt, schema=Truths)
