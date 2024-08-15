@@ -5,3 +5,7 @@ OKG/wikipedia
 .env
 ARCHIVE
 api.key
+.deepeval-cache.json
+__pycache__
+.deepeval
+*.pyc

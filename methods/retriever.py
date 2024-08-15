@@ -28,6 +28,9 @@ class Retriever:
         self.cache_path = wikipedia_path + "/.cache/retriever_cache.json"
         self.cache = self._load_cache()
 
+        if not os.path.exists(wikipedia_path + "/.cache"):
+            os.mkdir(wikipedia_path + "/.cache")
+
     def _load_documents(self, entity: str) -> list[str]:
         file_path = os.path.join(self.wikipedia_path, entity + ".txt")
         if not os.path.exists(file_path):
@@ -37,19 +40,7 @@ class Retriever:
 
         return paragraphs
 
-    def _save_cache(self):
-        if os.path.exists(self.cache_path):
-            with open(self.cache_path, "r") as f:
-                new_cache = json.load(f)
-            self.cache.update(new_cache)
-
-        with open(self.cache_path, "w") as f:
-            json.dump(self.cache, f)
-
     def _load_cache(self):
-        if not os.path.exists(self.cache_path):
-            os.mkdir(os.path.dirname(self.cache_path))
-
         if os.path.exists(self.cache_path):
             with open(self.cache_path, "r") as f:
                 cache = json.load(f)
@@ -57,6 +48,13 @@ class Retriever:
             cache = {}
 
         return cache
+
+    def _save_cache(self):
+        old_cache = self._load_cache()
+        self.cache.update(old_cache)
+
+        with open(self.cache_path, "w") as f:
+            json.dump(self.cache, f)
 
     def retrieve(
         self, entity: str, query: str, top_k: int = 5, verbose: bool = True
@@ -88,22 +86,29 @@ class BM25Retriever(Retriever):
         query: str,
         top_k: int = 5,
     ) -> list[str]:
-        corpus = self._load_documents(entity)
-        self._bm25_fit(corpus=self._load_documents(entity))
-        results, scores = self._bm25_retrieve(query, corpus, top_k)
 
-        if self.verbose:
-            for i in range(results.shape[1]):
-                doc, score = results[0, i], scores[0, i]
-                print(f"Rank {i+1} (score: {score:.2f}): {doc}")
+        cache_key = entity + "#" + query[:4] + "#bm25"
 
-        res = [d for d in results[0]]
+        if cache_key in self.cache.keys():
+            return self.cache.get(cache_key)
 
-        cache_key = entity + "##" + query + "##" + f"top-{str(top_k)}" + "##bm25"
-        self.cache[cache_key] = res
-        self._save_cache()
+        else:
+            corpus = self._load_documents(entity)
+            self._bm25_fit(corpus=self._load_documents(entity))
+            results, scores = self._bm25_retrieve(query, corpus, top_k)
 
-        return res
+            if self.verbose:
+                for i in range(results.shape[1]):
+                    doc, score = results[0, i], scores[0, i]
+                    print(f"Rank {i+1} (score: {score:.2f}): {doc}")
+
+            res = [d for d in results[0]]
+
+            cache_key = entity + "#" + query[:4] + "#bm25"
+            self.cache[cache_key] = res
+            self._save_cache()
+
+            return res
 
 
 class SentenceTransformerRetriever(Retriever):
@@ -130,23 +135,27 @@ class SentenceTransformerRetriever(Retriever):
         return top_results
 
     def retrieve(self, entity: str, query: str, top_k: int = 5) -> list[str]:
-        corpus = self._load_documents(entity)
-        results = self._sentence_transformer_retrieve(query, corpus, top_k)
 
-        if self.verbose:
-            for i in range(top_k):
-                doc, score = corpus[results.indices[i]], results.values[i]
-                print(f"Rank {i+1} (score: {score:.2f}): {doc}")
+        cache_key = entity + "#" + query[:4] + "#" + self.model_name
 
-        res = [corpus[d] for d in results.indices]
+        if cache_key in self.cache.keys():
+            return self.cache.get(cache_key)
 
-        cache_key = (
-            entity + "##" + query + "##" + f"top-{str(top_k)}" + f"##{self.model_name}"
-        )
-        self.cache[cache_key] = res
-        self._save_cache()
+        else:
+            corpus = self._load_documents(entity)
+            results = self._sentence_transformer_retrieve(query, corpus, top_k)
 
-        return res
+            if self.verbose:
+                for i in range(top_k):
+                    doc, score = corpus[results.indices[i]], results.values[i]
+                    print(f"Rank {i+1} (score: {score:.2f}): {doc}")
+
+            res = [corpus[d] for d in results.indices]
+
+            self.cache[cache_key] = res
+            self._save_cache()
+
+            return res
 
 
 def retrieve(

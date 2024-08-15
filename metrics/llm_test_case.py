@@ -33,7 +33,6 @@ class LLMTestCase:
                 and all(isinstance(item, str) for item in self.retrieval_context)
                 and not isinstance(self.retrieval_context, str)
             ):
-                print(type(self.retrieval_context))
                 raise TypeError(
                     "'retrieval_context' must be None or a list of strings or string"
                 )

@@ -1,45 +1,19 @@
 import os
 import pandas as pd
-import FactScoreLite
+import asyncio
 from tqdm import tqdm
 from dotenv import load_dotenv
-from metrics.hallucination.metric import HallucinationMetric
-from metrics.llm_test_case import LLMTestCase
+from metrics import FactScoreLite
 from methods.retriever import retrieve
-from FactScoreLite import FactScore
+from metrics.FactScoreLite import FactScore
+from deepeval.test_case import LLMTestCase
+from concurrent.futures import ProcessPoolExecutor
+
 
 load_dotenv()
 
 
-def call_local_metric(
-    test_cases: list[LLMTestCase],
-):
-    # evaluate metric
-    metric = HallucinationMetric(
-        threshold=0.5,
-        model="gpt-4o",
-        api_key=os.getenv("OPENAI_API_KEY"),
-        include_reason=True,
-        strict_mode=False,
-        async_mode=True,
-    )
-
-    avg_facutal_score = 0.0
-    for idx, test_case in tqdm(enumerate(test_cases)):
-        metric.measure(test_case)
-        avg_facutal_score += metric.score
-
-        if idx < 5:
-            print(f"Score: {metric.score}")
-            print(f"Reason: {metric.reason}")
-
-    avg_facutal_score /= len(test_cases)
-    print(f"Average factual score: {avg_facutal_score}")
-
-    return avg_facutal_score
-
-
-def call_fact_score(
+async def call_fact_score(
     generations: list[list],
     knowledge_sources: list[list[str]],
     rerun: bool = False,
@@ -52,11 +26,11 @@ def call_fact_score(
         os.remove(FactScoreLite.configs.facts_db_path)
         os.remove(FactScoreLite.configs.decisions_db_path)
 
-    scores, init_scores = FactScore(gamma=10).get_factscore(
-        generations=generations,
-        knowledge_sources=knowledge_sources,
+    fact_score = FactScore(gamma=10)
+
+    scores, init_scores = await fact_score.get_factscore(
+        generations=generations, knowledge_sources=knowledge_sources
     )
-    print(f"Average fact score: {scores}")
 
     return scores, init_scores
 
@@ -97,15 +71,16 @@ def main():
                 retrieval_context=retrieved_context,
             )
         )
-    # call local metric
-    avg_facutal_score = call_local_metric(test_cases)
 
     # evaluate FactScore
-    actual_output = [test_case.actual_output for test_case in test_cases[:5]]
-    retrieval_context = [test_case.retrieval_context for test_case in test_cases[:5]]
-    avg_fact_score, _ = call_fact_score(
-        generations=actual_output, knowledge_sources=retrieval_context
+    actual_output = [test_case.actual_output for test_case in test_cases]
+    retrieval_context = [test_case.retrieval_context for test_case in test_cases]
+    avg_fact_score, avg_init_fact_score_before_gamma = asyncio.run(
+        call_fact_score(generations=actual_output, knowledge_sources=retrieval_context)
     )
+
+    print(f"Average fact score: {avg_fact_score}")
+    print(f"Average fact score before gamma: {avg_init_fact_score_before_gamma}")
 
     ...
 
