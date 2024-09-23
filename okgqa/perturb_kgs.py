@@ -449,8 +449,6 @@ if __name__ == "__main__":
     # ----------------------------
     print("Initializing the scoring function...")
     scorer = TripleScorer(model_path="/data/yuansui/link_prediction_model")
-    all_relations = list(set(nx.get_edge_attributes(G_all, 'relation').values()))
-    print(f"All Relations: {all_relations}")
     
     # ----------------------------
     # Initialize the Metrics Dictionary
@@ -497,6 +495,10 @@ if __name__ == "__main__":
         # Apply Perturbation Methods
         # ----------------------------
         for G in tqdm(pruned_ppr_graphs, desc=f"Perturbing Graphs at Level {perturbation_level}", leave=True):
+            
+            # 0. Extract all unique relations in the graph
+            all_relations = list(set(nx.get_edge_attributes(G, 'relation').values()))
+            # print(f"All Relations: {all_relations}")
                         
             # 1. Relation Swapping (RS)
             # print("\n--- Applying Relation Swapping (RS) ---")
