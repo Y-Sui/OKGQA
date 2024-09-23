@@ -441,7 +441,7 @@ if __name__ == "__main__":
     # ----------------------------
     # Load data and preprocess
     # ----------------------------
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/", sample_size=5)
+    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/", sample_size=None)
     G_all = nx.compose_all(pruned_ppr_graphs)
     
     # ----------------------------
@@ -499,7 +499,7 @@ if __name__ == "__main__":
         for G in tqdm(pruned_ppr_graphs, desc=f"Perturbing Graphs at Level {perturbation_level}", leave=True):
                         
             # 1. Relation Swapping (RS)
-            print("\n--- Applying Relation Swapping (RS) ---")
+            # print("\n--- Applying Relation Swapping (RS) ---")
             G_RS = graph_perturber.apply_perturbation(
                 G=G,
                 method='RS',
@@ -512,7 +512,7 @@ if __name__ == "__main__":
             metrics_dict['SD2'].append(metrics_RS['SD2'])
 
             # 2. Relation Replacement (RR)
-            print("\n--- Applying Relation Replacement (RR) ---")
+            # print("\n--- Applying Relation Replacement (RR) ---")
             G_RR = graph_perturber.apply_perturbation(
                 G=G,
                 method='RR',
@@ -527,7 +527,7 @@ if __name__ == "__main__":
             metrics_dict['SD2'].append(metrics_RR['SD2'])
 
             # 3. Edge Rewiring (ER)
-            print("\n--- Applying Edge Rewiring (ER) ---")
+            # print("\n--- Applying Edge Rewiring (ER) ---")
             G_ER = graph_perturber.apply_perturbation(
                 G=G,
                 method='ER',
@@ -540,7 +540,7 @@ if __name__ == "__main__":
             metrics_dict['SD2'].append(metrics_ER['SD2'])
 
             # 4. Edge Deletion (ED)
-            print("\n--- Applying Edge Deletion (ED) ---")
+            # print("\n--- Applying Edge Deletion (ED) ---")
             G_ED = graph_perturber.apply_perturbation(
                 G=G,
                 method='ED',
