@@ -582,9 +582,12 @@ if __name__ == "__main__":
     # ----------------------------
     comprehensive_metrics_df = pd.DataFrame(comprehensive_metrics)
     metrics_save_path = "comprehensive_perturb_metrics.csv"
-    comprehensive_metrics_df.to_csv(metrics_save_path, index=False)
+    
+    grouping_columns = ['Method', 'Perturbation_Level']
+    average_metrics = comprehensive_metrics_df.groupby(grouping_columns).mean().reset_index()
+    average_metrics.to_csv(f"{save_directory}/metrics_save_path", index=False)
     print(f"\nSaved comprehensive metrics to '{metrics_save_path}'")
     
     # Optionally, display the entire metrics dataframe
     print("\n===== Comprehensive Metrics =====")
-    print(comprehensive_metrics_df)
+    print(average_metrics)

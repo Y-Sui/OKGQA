@@ -1,9 +1,9 @@
 Freebase
-OKG/subgraphs
-OKG/generation
-OKG/wikipedia
-OKG/perturbed_graphs
-OKG/query
+okgqa/subgraphs
+okgqa/generation
+okgqa/wikipedia
+okgqa/perturbed_graphs
+okgqa/query
 .env
 ARCHIVE
 api.key
