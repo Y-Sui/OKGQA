@@ -5,7 +5,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, DistilBertForSequenceClassification, AdamW
 from sklearn.model_selection import train_test_split
-from typing import Callable
 import random
 import os
 from utils import load_all_graphs

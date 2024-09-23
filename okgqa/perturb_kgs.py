@@ -208,7 +208,7 @@ class GraphPerturber:
     
         edges = list(G_perturbed.edges(data=True))
         if len(edges) < 2:
-            print("Not enough edges to perform Relation Swapping.")
+            # print("Not enough edges to perform Relation Swapping.")
             return G_perturbed
     
         for _ in range(num_swaps):
@@ -223,7 +223,7 @@ class GraphPerturber:
                 G_perturbed[u1][v1]['relation']
             )
     
-        print(f"Relation Swapping: Swapped relations of {num_swaps * 2} edges.")
+        # print(f"Relation Swapping: Swapped relations of {num_swaps * 2} edges.")
         return G_perturbed
 
     def _perturb_relation_replacement(
@@ -250,7 +250,7 @@ class GraphPerturber:
     
         edges = list(G_perturbed.edges(data=True))
         if not edges:
-            print("No edges available for Relation Replacement.")
+            # print("No edges available for Relation Replacement.")
             return G_perturbed
     
         for _ in range(num_replacements):
@@ -263,13 +263,13 @@ class GraphPerturber:
             # Exclude the original relation to ensure a change
             candidate_relations = [r for r in relations if r != original_relation]
             if not candidate_relations:
-                print("No alternative relations available for replacement.")
+                # print("No alternative relations available for replacement.")
                 continue
     
             # Compute scores for all candidate relations
             scores = [s_G(u, r, v) for r in candidate_relations]
             if not scores:
-                print("Scoring function returned empty scores.")
+                # print("Scoring function returned empty scores.")
                 continue
     
             # Select the relation with the minimum score
@@ -279,7 +279,7 @@ class GraphPerturber:
             # Replace the relation
             G_perturbed[u][v]['relation'] = new_relation
     
-        print(f"Relation Replacement: Replaced relations of {num_replacements} edges.")
+        # print(f"Relation Replacement: Replaced relations of {num_replacements} edges.")
         return G_perturbed
 
     def _perturb_edge_rewiring(
@@ -307,7 +307,7 @@ class GraphPerturber:
         edges = list(G_perturbed.edges(data=True))
         entities = list(G_perturbed.nodes())
         if not edges or not entities:
-            print("No edges or entities available for Edge Rewiring.")
+            # print("No edges or entities available for Edge Rewiring.")
             return G_perturbed
 
         # Ensure we don't attempt to rewire more edges than available
@@ -342,12 +342,12 @@ class GraphPerturber:
             try:
                 G_perturbed.remove_edge(u, v)
                 G_perturbed.add_edge(u, e3, relation=original_relation)
-                print(f"Rewired edge ({u}, {v}) to ({u}, {e3}) with relation '{original_relation}'.")
+                # print(f"Rewired edge ({u}, {v}) to ({u}, {e3}) with relation '{original_relation}'.")
             except nx.NetworkXError as e:
-                print(f"Error rewiring edge ({u}, {v}): {e}")
+                # print(f"Error rewiring edge ({u}, {v}): {e}")
                 continue
 
-        print(f"Edge Rewiring: Rewired {num_rewirings} edges out of {total_edges}.")
+        # print(f"Edge Rewiring: Rewired {num_rewirings} edges out of {total_edges}.")
         return G_perturbed
 
     def _perturb_edge_deletion(
@@ -370,14 +370,14 @@ class GraphPerturber:
     
         edges = list(G_perturbed.edges())
         if not edges:
-            print("No edges available for Edge Deletion.")
+            # print("No edges available for Edge Deletion.")
             return G_perturbed
     
         edges_to_delete = random.sample(edges, min(num_deletions, len(edges)))
     
         G_perturbed.remove_edges_from(edges_to_delete)
     
-        print(f"Edge Deletion: Deleted {len(edges_to_delete)} edges.")
+        # print(f"Edge Deletion: Deleted {len(edges_to_delete)} edges.")
         return G_perturbed
 
     def apply_perturbation(
@@ -409,7 +409,7 @@ class GraphPerturber:
     
         if method == 'RS':
             if G.number_of_edges() < 2:
-                print("Not enough edges to perform Relation Swapping.")
+                # print("Not enough edges to perform Relation Swapping.")
                 return G.copy()
             return self._perturb_relation_swapping(G)
     
@@ -417,19 +417,19 @@ class GraphPerturber:
             if s_G is None or relations is None:
                 raise ValueError("Scoring function 's_G' and 'relations' list must be provided for Relation Replacement.")
             if G.number_of_edges() == 0:
-                print("No edges available for Relation Replacement.")
+                # print("No edges available for Relation Replacement.")
                 return G.copy()
             return self._perturb_relation_replacement(G, s_G, relations)
     
         elif method == 'ER':
             if G.number_of_edges() == 0 or G.number_of_nodes() < 2:
-                print("Not enough edges or entities to perform Edge Rewiring.")
+                # print("Not enough edges or entities to perform Edge Rewiring.")
                 return G.copy()
             return self._perturb_edge_rewiring(G)
     
         elif method == 'ED':
             if G.number_of_edges() == 0:
-                print("No edges available for Edge Deletion.")
+                # print("No edges available for Edge Deletion.")
                 return G.copy()
             return self._perturb_edge_deletion(G)
     
