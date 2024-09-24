@@ -587,7 +587,7 @@ if __name__ == "__main__":
     
     grouping_columns = ['Method', 'Perturbation_Level']
     average_metrics = comprehensive_metrics_df.groupby(grouping_columns).mean().reset_index()
-    average_metrics.to_csv(f"{save_directory}/metrics_save_path", index=False)
+    average_metrics.to_csv(f"{save_directory}/{metrics_save_path}", index=False)
     print(f"\nSaved comprehensive metrics to '{metrics_save_path}'")
     
     # Optionally, display the entire metrics dataframe
