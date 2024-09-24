@@ -453,7 +453,7 @@ if __name__ == "__main__":
     # ----------------------------
     # Initialize the Metrics Dictionary
     # ----------------------------
-    perturbation_levels = [0.2, 0.4, 0.6, 0.8, 1.0]
+    perturbation_levels = [0]
     try:
         os.mkdir("perturbed_graphs")
     except FileExistsError:
@@ -474,6 +474,24 @@ if __name__ == "__main__":
     for perturbation_level in perturbation_levels:
         print(f"\n===== Perturbation Level: {perturbation_level} =====")
         graph_perturber = GraphPerturber(seed=42, perturbation_level=perturbation_level)
+        
+        if perturbation_level == 0:
+            ATS, SC2D, SD2 = 0, 0, 0
+            for G in tqdm(pruned_ppr_graphs, desc=f"Perturbing Graphs at Level {perturbation_level}", leave=True):
+                G_prime = G.copy()
+                metrics = compute_all_metrics(G, G_prime, scorer.score)
+                ATS += metrics['ATS']
+                SC2D += metrics['SC2D']
+                SD2 += metrics['SD2']
+            ATS /= len(pruned_ppr_graphs)
+            SC2D /= len(pruned_ppr_graphs)
+            SD2 /= len(pruned_ppr_graphs)
+            print("\n===== Average Metrics for Perturbation Level 0 =====")
+            print(f"ATS: {ATS}, SC2D: {SC2D}, SD2: {SD2}")
+            if len(perturbation_levels) == 1:
+                break
+            else:
+                continue
         
         # Initialize dictionaries to store perturbed graphs per method
         perturbed_graphs = {
