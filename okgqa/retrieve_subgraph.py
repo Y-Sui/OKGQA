@@ -14,9 +14,11 @@ import networkx as nx
 import numpy as np
 from collections import Counter
 from utils import load_all_graphs, run_sparql
+from preprocess import preprocess_graph
 
 # set the maximum number of retries
 MAX_RETRIES = 10
+preprocess_graph = False
 
 # load environment variables
 load_dotenv()
@@ -112,7 +114,7 @@ def build_up_graph(rdfs):
     return G, central_node
 
     
-def retrieve_subgraph(index, entry_node, rerun=False):
+def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
     raw_graph_pth = f"subgraphs/raw/{index}.pkl"
     pruned_ppr_graph_pth = f"subgraphs/pruned_ppr/{index}.pkl"
 
@@ -124,6 +126,11 @@ def retrieve_subgraph(index, entry_node, rerun=False):
         rdfs = run_sparql(entry_node)
         G, central_node = build_up_graph(rdfs)
         ppr_G = ppr.prune_graph(G, central_node)
+        
+        if preprocess_graph:
+            # build the ppr_G (generate embeddings)
+            preprocess_graph(ppr_G, query, 10, 10, pruned_ppr_graph_pth, default_edge_cost=1.0, embedding_model="text-embedding-ada-002")
+
         pickle.dump(G, open(f"subgraphs/raw/{index}.pkl", "wb"))
         pickle.dump(ppr_G, open(f"subgraphs/pruned_ppr/{index}.pkl", "wb"))
         return index, True
@@ -137,7 +144,7 @@ if __name__ == "__main__":
     # initialize OpenAI client
     client = OpenAI(api_key=openai_api_key)
 
-    df = pd.read_csv("filtered_questions_63a0f8a06513.csv", index_col=0)
+    df = pd.read_csv("query/filtered_questions_63a0f8a06513.csv", index_col=0)
     df["dbpedia_entities"] = df["dbpedia_entities"].apply(lambda x: eval(x))
     df["placeholders"] = df["placeholders"].apply(lambda x: eval(x))
     if isinstance(df["dbpedia_entities"].iloc[0], dict):
@@ -162,12 +169,14 @@ if __name__ == "__main__":
     entry_nodes = []
     for entities in df["dbpedia_entities_re"]:
         entry_nodes.append(list(entities.values()))
-        
+    queries = df["question"]
+    
+    assert len(entry_nodes) == len(queries); print("Length of entry nodes and queries are not equal")
 
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = []
-        for index, entry_node in enumerate(entry_nodes):
-            futures.append(executor.submit(retrieve_subgraph, index, entry_node, True))
+        for index, (entry_node, query) in enumerate(zip(entry_nodes, queries)):
+            futures.append(executor.submit(retrieve_subgraph, index, entry_node, query, True))
         for future in tqdm(
             as_completed(futures),
             total=len(futures),
