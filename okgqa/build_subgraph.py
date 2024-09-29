@@ -18,7 +18,7 @@ from preprocess import preprocess_graph
 
 # set the maximum number of retries
 MAX_RETRIES = 10
-preprocess_graph = False
+preprocess_graph_flag = False
 
 # load environment variables
 load_dotenv()
@@ -127,10 +127,12 @@ def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
         G, central_node = build_up_graph(rdfs)
         ppr_G = ppr.prune_graph(G, central_node)
         
-        if preprocess_graph:
+        if preprocess_graph_flag:
             # build the ppr_G (generate embeddings)
-            preprocess_graph(ppr_G, query, 10, 10, pruned_ppr_graph_pth, default_edge_cost=1.0, embedding_model="text-embedding-ada-002")
-
+            preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
+            pickle.dump(ppr_G, open(f"subgraphs/pruned_ppr_preprocessed/{index}.pkl", "wb"))
+            return index, True
+            
         pickle.dump(G, open(f"subgraphs/raw/{index}.pkl", "wb"))
         pickle.dump(ppr_G, open(f"subgraphs/pruned_ppr/{index}.pkl", "wb"))
         return index, True
@@ -160,6 +162,7 @@ if __name__ == "__main__":
         os.mkdir("subgraphs")
         os.mkdir("subgraphs/raw")
         os.mkdir("subgraphs/pruned_ppr")
+        os.mkdir("subgraphs/pruned_ppr_preprocessed")
     except:
         pass
 
@@ -191,3 +194,11 @@ if __name__ == "__main__":
     with open("subgraphs/error_subgraph_indices.txt", "w") as f:
         for index in error_subgraph_indices:
             f.write(f"{index}\n")
+
+    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
+    idxs = []
+    for g in pruned_ppr_graphs:
+        idxs.append(g["idx"])
+        
+    df_valid = df.iloc[idxs]
+    df_valid.to_csv("query/filtered_questions_63a0f8a06513_valid.csv", index=False)

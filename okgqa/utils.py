@@ -188,7 +188,13 @@ def load_all_graphs(raw_graph_dir, sample_size=None):
                     else:
                         print(f"Loaded object from '{filename}'. It may not be a NetworkX graph.")
                     
-                    graphs.append(graph)
+                    if graph:
+                      graphs.append(
+                        {
+                          "idx": filename.split(".")[0],
+                          "graph": graph
+                        }
+                      )
                     if sample_size is not None and len(graphs) >= sample_size:
                         break
             except Exception as e:

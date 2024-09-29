@@ -1,313 +1,219 @@
 import networkx as nx
 import numpy as np
+import pandas as pd
 import heapq
 import os
-import pulp
+import heapq
 from openai import OpenAI
 from typing import List, Tuple, Dict
+from pcst_fast import pcst_fast
+from preprocess import preprocess_graph
+from utils import load_all_graphs
 
 
-def get_embedding(text: str, model: str = "text-embedding-ada-002") -> List[float]:
+def triplet_retrieval(graph, k):
     """
-    Retrieve the embedding for a given text using OpenAI's embedding API.
-
-    Parameters:
-    - text (str): The input text to embed.
-    - model (str): The embedding model to use.
-
-    Returns:
-    - List[float]: The embedding vector.
+    Retrieve triplets (edges) based on the combined similarity scores of nodes and edges.
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    try:
-        response = client.embeddings.create(input=text, model=model)
-        embedding = response.data[0].embedding
-        return embedding
-    except Exception as e:
-        print(f"Error obtaining embedding for text: {text}\n{e}")
-        return []
-
-def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-    """
-    Compute the cosine similarity between two vectors.
-
-    Parameters:
-    - vec1 (List[float]): First vector.
-    - vec2 (List[float]): Second vector.
-
-    Returns:
-    - float: Cosine similarity.
-    """
-    a = np.array(vec1)
-    b = np.array(vec2)
-    if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
-        return 0.0
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-def compute_node_prizes(query_embedding: List[float], G: nx.Graph, top_k: int) -> dict:
-    """
-    Assign prizes to nodes based on their relevance to the query using embeddings.
-
-    Parameters:
-    - query_embedding (List[float]): Embedding of the query.
-    - G (networkx.Graph): The input graph with node attributes.
-    - top_k (int): Number of top nodes to assign prizes.
-
-    Returns:
-    - dict: A dictionary mapping nodes to their prizes.
-    """
-    node_prizes = {}
-    similarities = {}
+    # Compute combined similarity for each edge (triplet)
+    triplet_similarities = []
+    for u, v, data in graph.edges(data=True):
+        node_u_sim = graph.nodes[u].get('similarity', 0)
+        node_v_sim = graph.nodes[v].get('similarity', 0)
+        edge_sim = data.get('similarity', 0)
+        # Combine the similarities (you can adjust the weights as needed)
+        combined_sim = node_u_sim + node_v_sim + edge_sim
+        triplet_similarities.append(((u, v), combined_sim))
     
-    # Compute similarity for each node
-    for node in G.nodes():
-        node_text = G.nodes[node].get('text', '')
-        node_embedding = G.nodes[node].get('embedding', [])
-        if not node_embedding:
-            node_embedding = get_embedding(node_text)
-            G.nodes[node]['embedding'] = node_embedding  # Cache embedding
-        sim = cosine_similarity(query_embedding, node_embedding)
-        similarities[node] = sim
-    
-    # Rank nodes based on similarity
-    ranked_nodes = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-    
-    # Assign prizes: top_k nodes get prizes from top_k to 1
-    for i, (node, sim) in enumerate(ranked_nodes[:top_k]):
-        node_prizes[node] = top_k - i  # Prize decreases with rank
-    
-    return node_prizes
+    # Sort triplets based on the combined similarity
+    triplet_similarities.sort(key=lambda x: x[1], reverse=True)
+    # Select the top-k triplets
+    top_k_triplets = triplet_similarities[:k]
+    # Retrieve the triplets with their data
+    triplets = []
+    for (u, v), _ in top_k_triplets:
+        triplets.append((u, v, graph.edges[u, v]))
+    return triplets
 
-def compute_edge_prizes(query_embedding: List[float], G: nx.Graph, top_k: int) -> dict:
+def path_retrieval(graph, max_path_length=6, max_paths=5):
     """
-    Assign prizes to edges based on their relevance to the query using embeddings.
-
-    Parameters:
-    - query_embedding (List[float]): Embedding of the query.
-    - G (networkx.Graph): The input graph with edge attributes.
-    - top_k (int): Number of top edges to assign prizes.
-
-    Returns:
-    - dict: A dictionary mapping edges to their prizes.
+    Retrieve paths based on the prize assignment and cost allocation.
     """
-    edge_prizes = {}
-    similarities = {}
+    # Start from high-prize nodes
+    node_prizes = [(node, data['prize']) for node, data in graph.nodes(data=True) if data['prize'] > 0]
+    node_prizes.sort(key=lambda x: x[1], reverse=True)
     
-    # Compute similarity for each edge
-    for edge in G.edges():
-        edge_text = G.edges[edge].get('text', '')
-        edge_embedding = G.edges[edge].get('embedding', [])
-        if not edge_embedding:
-            edge_embedding = get_embedding(edge_text)
-            G.edges[edge]['embedding'] = edge_embedding  # Cache embedding
-        sim = cosine_similarity(query_embedding, edge_embedding)
-        similarities[edge] = sim
-    
-    # Rank edges based on similarity
-    ranked_edges = sorted(similarities.items(), key=lambda x: x[1], reverse=True)
-    
-    # Assign prizes: top_k edges get prizes from top_k to 1
-    for i, (edge, sim) in enumerate(ranked_edges[:top_k]):
-        edge_prizes[edge] = top_k - i  # Prize decreases with rank
-    
-    return edge_prizes
-
-def assign_edge_costs(G: nx.Graph, default_cost: float = 1.0) -> nx.Graph:
-    """
-    Assign costs to edges in the graph.
-
-    Parameters:
-    - G (networkx.Graph): The input graph.
-    - default_cost (float): The default cost to assign to each edge.
-
-    Returns:
-    - networkx.Graph: The graph with updated edge costs.
-    """
-    for edge in G.edges():
-        if 'cost' not in G.edges[edge]:
-            G.edges[edge]['cost'] = default_cost
-    return G
-
-def find_reasoning_paths(
-    G: nx.Graph,
-    node_prizes: dict,
-    edge_prizes: dict,
-    C_e: float,
-    max_paths: int = 5,
-    max_length: int = 10
-) -> List[Tuple[List, float]]:
-    """
-    Retrieve reasoning paths from the graph based on node and edge prizes.
-
-    Parameters:
-    - G (networkx.Graph): The input graph.
-    - node_prizes (dict): Prizes assigned to nodes.
-    - edge_prizes (dict): Prizes assigned to edges.
-    - C_e (float): Cost assigned to each edge.
-    - max_paths (int): Maximum number of paths to retrieve.
-    - max_length (int): Maximum length of each path.
-
-    Returns:
-    - list: A list of tuples, each containing a path (list of nodes and relations) and its score.
-    """
-    # Identify starting nodes (nodes with non-zero prizes)
-    starting_nodes = [n for n, p in node_prizes.items() if p > 0]
     paths = []
-    visited_paths = set()
-
-    for start in starting_nodes:
-        # Priority queue: (negative_score, path)
-        heap = []
-        initial_score = node_prizes.get(start, 0)
-        heapq.heappush(heap, (-(initial_score), [start]))
-        
-        while heap and len(paths) < max_paths:
-            neg_score, path = heapq.heappop(heap)
-            current_score = -neg_score
-            current_node = path[-1]
-            
-            if len(path) >= max_length:
-                continue  # Exceeds maximum path length
-            
-            # Explore neighbors
-            for neighbor in G.neighbors(current_node):
-                if neighbor in path:
-                    continue  # Avoid cycles
-                
-                edge = (current_node, neighbor) if (current_node, neighbor) in G.edges() else (neighbor, current_node)
-                edge_prize = edge_prizes.get(edge, 0)
-                node_prize = node_prizes.get(neighbor, 0)
-                edge_cost = G.edges[edge].get('cost', C_e)
-                
-                # Calculate new score
-                new_score = current_score + edge_prize + node_prize - edge_cost
-                new_path = path + [edge, neighbor]  # Include edge in the path
-                
-                # Avoid revisiting the same path
-                path_tuple = tuple(new_path)
-                if path_tuple in visited_paths:
-                    continue
-                visited_paths.add(path_tuple)
-                
-                # Push the new path to the heap
-                heapq.heappush(heap, (-(new_score), new_path))
-                
-                # Add to the final paths list
-                paths.append((new_path, new_score))
-                
-                if len(paths) >= max_paths:
-                    break
-
-    # Sort paths based on their scores in descending order
-    sorted_paths = sorted(paths, key=lambda x: x[1], reverse=True)
+    pq = []
+    # Initialize priority queue with paths starting from high-prize nodes
+    for node, prize in node_prizes:
+        path = [node]
+        score = prize
+        heapq.heappush(pq, (-score, path))
     
-    # Extract only the paths (without scores)
-    final_paths = [path for path, score in sorted_paths[:max_paths]]
-    return final_paths
-
-def retrieve_reasoning_paths(
-    query: str,
-    G: nx.Graph,
-    top_k_nodes: int = 10,
-    top_k_edges: int = 10,
-    edge_cost: float = 1.0,
-    max_paths: int = 5,
-    max_length: int = 10
-) -> List[List]:
-    """
-    Main function to retrieve reasoning paths based on a query and graph using OpenAI embeddings.
-
-    Parameters:
-    - query (str): The input query.
-    - G (networkx.Graph): The input graph.
-    - top_k_nodes (int): Number of top nodes to consider for prizes.
-    - top_k_edges (int): Number of top edges to consider for prizes.
-    - edge_cost (float): Default cost assigned to each edge.
-    - max_paths (int): Maximum number of paths to retrieve.
-    - max_length (int): Maximum length of each path.
-
-    Returns:
-    - list: A list of reasoning paths, each including nodes and their relations.
-    """
-    # Step 1: Generate embedding for the query
-    query_embedding = get_embedding(query)
-    if not query_embedding:
-        print("Failed to obtain query embedding.")
-        return []
-
-    # Step 2: Assign prizes to nodes
-    node_prizes = compute_node_prizes(query_embedding, G, top_k_nodes)
-
-    # Step 3: Assign prizes to edges
-    edge_prizes = compute_edge_prizes(query_embedding, G, top_k_edges)
-
-    # Step 4: Assign costs to edges
-    G = assign_edge_costs(G, default_cost=edge_cost)
-
-    # Step 5: Retrieve reasoning paths
-    paths = find_reasoning_paths(
-        G=G,
-        node_prizes=node_prizes,
-        edge_prizes=edge_prizes,
-        C_e=edge_cost,
-        max_paths=max_paths,
-        max_length=max_length
-    )
-
+    visited_paths = set()
+    while pq and len(paths) < max_paths:
+        neg_score, path = heapq.heappop(pq)
+        current_node = path[-1]
+        path_tuple = tuple(path)
+        if path_tuple in visited_paths:
+            continue
+        visited_paths.add(path_tuple)
+        if len(path) > max_path_length:
+            continue
+        # Save the path
+        paths.append((-neg_score, path.copy()))
+        # Extend the path
+        for neighbor in graph.successors(current_node):
+            if neighbor in path:
+                continue  # Avoid cycles
+            edge_data = graph.edges[current_node, neighbor]
+            node_data = graph.nodes[neighbor]
+            edge_prize = edge_data.get('prize', 0)
+            node_prize = node_data.get('prize', 0)
+            edge_cost = edge_data.get('cost', 1.0)
+            # Calculate new score
+            new_score = -neg_score + node_prize + edge_prize - edge_cost
+            new_path = path + [neighbor]
+            heapq.heappush(pq, (-new_score, new_path))
     return paths
 
-# ---------------------- Usage Example ----------------------
+def subgraph_retrieval(graph):
+    """
+    Retrieve a subgraph using the Prize-Collecting Steiner Tree (PCST) algorithm.
+    """
 
+    c = 0.01  # A small constant to adjust edge costs
+
+    if graph.number_of_nodes() == 0 or graph.number_of_edges() == 0:
+        return nx.DiGraph()
+
+    # Map nodes to indices
+    node_id_map = {node: idx for idx, node in enumerate(graph.nodes())}
+    num_nodes = len(node_id_map)
+    prizes = np.zeros(num_nodes, dtype=float)
+
+    # Collect node prizes
+    for node, idx in node_id_map.items():
+        prizes[idx] = graph.nodes[node].get('prize', 0.0)
+
+    edges_list = []
+    costs = []
+    virtual_node_map = {}
+    edge_id_map = {}
+    node_idx = num_nodes  # Index for virtual nodes
+
+    for u, v, data in graph.edges(data=True):
+        u_idx = node_id_map[u]
+        v_idx = node_id_map[v]
+        edge_prize = data.get('prize', 0.0)
+        edge_cost = data.get('cost', 1.0)
+
+        if edge_prize <= edge_cost:
+            cost = edge_cost - edge_prize
+            edges_list.append((u_idx, v_idx))
+            costs.append(cost)
+            edge_id_map[(u_idx, v_idx)] = (u, v)
+        else:
+            # Introduce a virtual node
+            virtual_node_idx = node_idx
+            node_idx += 1
+            virtual_node_map[virtual_node_idx] = (u, v)
+            virtual_node_prize = edge_prize - edge_cost
+            prizes = np.append(prizes, virtual_node_prize)
+            # Add edges connected to the virtual node
+            edges_list.append((u_idx, virtual_node_idx))
+            costs.append(0.0)
+            edges_list.append((virtual_node_idx, v_idx))
+            costs.append(0.0)
+            # No need to map these edges, as they are virtual
+
+    # Prepare edges and costs for PCST
+    edges_array = np.array(edges_list, dtype=int)
+    costs_array = np.array(costs, dtype=float)
+
+    # Run PCST
+    root = -1  # Unrooted PCST
+    num_clusters = 1
+    pruning = 'gw'
+    verbosity_level = 0
+
+    vertices, edges_selected = pcst_fast(edges_array, prizes, costs_array, root, num_clusters, pruning, verbosity_level)
+
+    # Map back the selected nodes and edges
+    selected_nodes = set()
+    selected_edges = set()
+
+    for node_idx in vertices:
+        if node_idx < num_nodes:
+            node = list(node_id_map.keys())[list(node_id_map.values()).index(node_idx)]
+            selected_nodes.add(node)
+        else:
+            # Virtual node, get the corresponding edge
+            edge = virtual_node_map.get(node_idx)
+            if edge:
+                selected_edges.add(edge)
+                selected_nodes.update(edge)
+
+    for edge_idx in edges_selected:
+        u_idx, v_idx = edges_array[edge_idx]
+        if u_idx < num_nodes and v_idx < num_nodes:
+            # Original edge
+            edge = edge_id_map.get((u_idx, v_idx))
+            if edge:
+                selected_edges.add(edge)
+                selected_nodes.update(edge)
+        elif u_idx < num_nodes and v_idx >= num_nodes:
+            # Edge from node to virtual node
+            virtual_node_idx = v_idx
+            edge = virtual_node_map.get(virtual_node_idx)
+            if edge:
+                selected_edges.add(edge)
+                selected_nodes.update(edge)
+        elif u_idx >= num_nodes and v_idx < num_nodes:
+            # Edge from virtual node to node
+            virtual_node_idx = u_idx
+            edge = virtual_node_map.get(virtual_node_idx)
+            if edge:
+                selected_edges.add(edge)
+                selected_nodes.update(edge)
+
+    # Create the subgraph
+    subgraph = nx.DiGraph()
+    subgraph.add_nodes_from(selected_nodes)
+
+    for u, v in selected_edges:
+        subgraph.add_edge(u, v, **graph.edges[u, v])
+
+    return subgraph
+
+
+def main():
+    df = pd.read_csv("query/filtered_questions_63a0f8a06513_valid.csv")
+    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
+    graphs = [item['graph'] for item in pruned_ppr_graphs]
+    queries = df["question"]
+
+    for i, (query, G) in enumerate(zip(queries, graphs)):
+        preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
+        
+        # Triplet retrieval
+        triplets = triplet_retrieval(G, k=10)
+        print("Triplet Retrieval:")
+        for triplet in triplets:
+            print(triplet)
+
+        # Path retrieval
+        paths = path_retrieval(G, max_path_length=6, max_paths=5)
+        print("\nPath Retrieval:")
+        for score, path in paths:
+            print(f"Score: {score}, Path: {path}")
+
+        # Subgraph retrieval
+        subgraph = subgraph_retrieval(G)
+        print("\nSubgraph Retrieval:")
+        print("Nodes:", subgraph.nodes())
+        print("Edges:", subgraph.edges())
+        
 if __name__ == "__main__":
-    # Create a sample graph
-    G = nx.Graph()
-
-    # Add nodes with 'text' attributes
-    G.add_node(1, text="Climate Change")
-    G.add_node(2, text="Polar Bears")
-    G.add_node(3, text="Sea Ice")
-    G.add_node(4, text="Food Sources")
-    G.add_node(5, text="Migration Patterns")
-    G.add_node(6, text="Ecosystem Balance")
-
-    # Add edges with 'text' attributes
-    G.add_edge(1, 3, text="Affects")
-    G.add_edge(3, 2, text="Habitat")
-    G.add_edge(1, 4, text="Impacts")
-    G.add_edge(4, 2, text="Availability")
-    G.add_edge(2, 5, text="Influences")
-    G.add_edge(5, 6, text="Maintains")
-    G.add_edge(6, 1, text="Regulates")
-
-    # Define the query
-    query = "Explain the impact of climate change on polar bear populations."
-
-    # Retrieve reasoning paths
-    reasoning_paths = retrieve_reasoning_paths(
-        query=query,
-        G=G,
-        top_k_nodes=5,
-        top_k_edges=5,
-        edge_cost=1.0,
-        max_paths=5,
-        max_length=10
-    )
-
-    # Display the reasoning paths with relations
-    print("Retrieved Reasoning Paths:")
-    for idx, path in enumerate(reasoning_paths, 1):
-        # Initialize an empty string for the formatted path
-        path_text = ""
-        # Iterate through the path list, which contains nodes and edges alternately
-        for i in range(len(path)):
-            if i % 2 == 0:
-                # Node
-                node_id = path[i]
-                node_text = G.nodes[node_id]['text']
-                path_text += node_text
-            else:
-                # Edge
-                edge = path[i]
-                relation = G.edges[edge]['text']
-                path_text += f" --{relation}--> "
-        print(f"Path {idx}: {path_text}")
+    main()
