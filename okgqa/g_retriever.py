@@ -32,58 +32,73 @@ def triplet_retrieval(graph, k):
     # Retrieve the triplets with their data
     triplets = []
     for (u, v), _ in top_k_triplets:
-        triplets.append((u, v, graph.edges[u, v]))
+        triplets.append((u, graph.edges[u, v]['relation'], v))
     return triplets
 
-def path_retrieval(graph, max_path_length=6, max_paths=5):
+def path_retrieval(graph, max_path_length=8, max_paths=5):
     """
     Retrieve paths based on the prize assignment and cost allocation.
+    Returns a list of paths, where each path is a list of alternating nodes and relations.
     """
     # Start from high-prize nodes
-    node_prizes = [(node, data['prize']) for node, data in graph.nodes(data=True) if data['prize'] > 0]
+    node_prizes = [(node, data.get('prize', 0)) for node, data in graph.nodes(data=True) if data.get('prize', 0) > 0]
     node_prizes.sort(key=lambda x: x[1], reverse=True)
     
     paths = []
     pq = []
     # Initialize priority queue with paths starting from high-prize nodes
     for node, prize in node_prizes:
-        path = [node]
-        score = prize
-        heapq.heappush(pq, (-score, path))
+        path = [node]  # Start with the node
+        score = prize  # Initial score is the node's prize
+        heapq.heappush(pq, (-score, path))  # Negative score for max-heap behavior
     
     visited_paths = set()
     while pq and len(paths) < max_paths:
         neg_score, path = heapq.heappop(pq)
-        current_node = path[-1]
-        path_tuple = tuple(path)
-        if path_tuple in visited_paths:
+        current_node = path[-1]  # The last node in the path
+        path_nodes = tuple(n for n in path if isinstance(n, str) or isinstance(n, int))  # Node identifiers
+        
+        if path_nodes in visited_paths:
             continue
-        visited_paths.add(path_tuple)
-        if len(path) > max_path_length:
+        visited_paths.add(path_nodes)
+        
+        # Check path length (number of nodes)
+        num_nodes = (len(path) + 1) // 2  # Since path is nodes and relations alternating
+        if num_nodes > max_path_length:
             continue
+        
         # Save the path
         paths.append((-neg_score, path.copy()))
-        # Extend the path
-        for neighbor in graph.successors(current_node):
-            if neighbor in path:
-                continue  # Avoid cycles
-            edge_data = graph.edges[current_node, neighbor]
-            node_data = graph.nodes[neighbor]
-            edge_prize = edge_data.get('prize', 0)
-            node_prize = node_data.get('prize', 0)
-            edge_cost = edge_data.get('cost', 1.0)
-            # Calculate new score
-            new_score = -neg_score + node_prize + edge_prize - edge_cost
-            new_path = path + [neighbor]
-            heapq.heappush(pq, (-new_score, new_path))
+        
+        # Extend the path if it hasn't reached max_path_length
+        if num_nodes < max_path_length:
+            for neighbor in graph.successors(current_node):
+                edge_data = graph.get_edge_data(current_node, neighbor)
+                relation = edge_data.get('relation')
+                edge_prize = edge_data.get('prize', 0)
+                edge_cost = edge_data.get('cost', 1.0)
+                node_data = graph.nodes[neighbor]
+                neighbor_prize = node_data.get('prize', 0)
+                
+                if neighbor in path_nodes:
+                    continue  # Avoid cycles
+                
+                # Calculate new score
+                new_score = -neg_score + neighbor_prize + edge_prize - edge_cost
+                
+                # Create new path
+                new_path = path + [relation, neighbor]
+                heapq.heappush(pq, (-new_score, new_path))
+    
+    # Sort the found paths based on score in descending order
+    paths.sort(key=lambda x: x[0], reverse=True)
+    
     return paths
 
 def subgraph_retrieval(graph):
     """
     Retrieve a subgraph using the Prize-Collecting Steiner Tree (PCST) algorithm.
     """
-
-    c = 0.01  # A small constant to adjust edge costs
 
     if graph.number_of_nodes() == 0 or graph.number_of_edges() == 0:
         return nx.DiGraph()
@@ -184,15 +199,21 @@ def subgraph_retrieval(graph):
 
     for u, v in selected_edges:
         subgraph.add_edge(u, v, **graph.edges[u, v])
+        
+    textual_subgraphs = []
+    for edge in subgraph.edges(data=True):
+        textual_subgraphs.append((edge[0], edge[2]['relation'], edge[1]))
 
-    return subgraph
+    return subgraph, textual_subgraphs
 
 
 def main():
     df = pd.read_csv("query/filtered_questions_63a0f8a06513_valid.csv")
     pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
-    graphs = [item['graph'] for item in pruned_ppr_graphs]
-    queries = df["question"]
+    graphs = [item['graph'] for item in pruned_ppr_graphs][:2]
+    queries = df["question"][:2]
+    
+    f = open("output.txt", "w")
 
     for i, (query, G) in enumerate(zip(queries, graphs)):
         preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
@@ -210,10 +231,12 @@ def main():
             print(f"Score: {score}, Path: {path}")
 
         # Subgraph retrieval
-        subgraph = subgraph_retrieval(G)
+        subgraph, textual_subgraph = subgraph_retrieval(G)
         print("\nSubgraph Retrieval:")
-        print("Nodes:", subgraph.nodes())
-        print("Edges:", subgraph.edges())
+        print(textual_subgraph)
+        
+        f.write(f"Query: {query}\n")
+        f.write(f"Triplet Retrieval: {textual_subgraph}\n")
         
 if __name__ == "__main__":
     main()

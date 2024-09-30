@@ -17,7 +17,7 @@ async def call_fact_score(
     rerun: bool = False,
 ):
     metrics.FactScoreLite.configs.model = "gpt-4o-mini"
-    metrics.FactScoreLite.configs.facts_db_path = "OKG/wikipedia/.cache/facts.json"
+    metrics.FactScoreLite.configs.facts_db_path = "okgqa/wikipedia/.cache/facts.json"
     metrics.FactScoreLite.configs.decisions_db_path = (
         "OKG/wikipedia/.cache/decisions.json"
     )
