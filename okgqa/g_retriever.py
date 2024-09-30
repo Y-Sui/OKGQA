@@ -205,38 +205,3 @@ def subgraph_retrieval(graph):
         textual_subgraphs.append((edge[0], edge[2]['relation'], edge[1]))
 
     return subgraph, textual_subgraphs
-
-
-def main():
-    df = pd.read_csv("query/filtered_questions_63a0f8a06513_valid.csv")
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
-    graphs = [item['graph'] for item in pruned_ppr_graphs][:2]
-    queries = df["question"][:2]
-    
-    f = open("output.txt", "w")
-
-    for i, (query, G) in enumerate(zip(queries, graphs)):
-        preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
-        
-        # Triplet retrieval
-        triplets = triplet_retrieval(G, k=10)
-        print("Triplet Retrieval:")
-        for triplet in triplets:
-            print(triplet)
-
-        # Path retrieval
-        paths = path_retrieval(G, max_path_length=6, max_paths=5)
-        print("\nPath Retrieval:")
-        for score, path in paths:
-            print(f"Score: {score}, Path: {path}")
-
-        # Subgraph retrieval
-        subgraph, textual_subgraph = subgraph_retrieval(G)
-        print("\nSubgraph Retrieval:")
-        print(textual_subgraph)
-        
-        f.write(f"Query: {query}\n")
-        f.write(f"Triplet Retrieval: {textual_subgraph}\n")
-        
-if __name__ == "__main__":
-    main()

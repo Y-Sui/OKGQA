@@ -134,6 +134,35 @@ WHERE {{
 }}
 """
 
+q_prefix = """
+  Generate 5 open-ended questions about different types: character description, event description, cause explanation, relationship explanation, trend prediction, outcome prediction, contrast analysis, historical comparison, evaluation and reflection, and application and practice. Some templates are provided below:
+  character description: describe a [person]'s significant contributions during their career. Example: Please describe Albert Einstein’s contributions to the field of physics.
+  event description: Provide a detailed description of the background and course of an [event]. Example: Please provide a detailed description of the background and course of the French Revolution.
+  cause explanation: Why did [person] take [action] at [time]? Example: Why did Nixon choose to resign from the presidency in 1974?
+  relationship explanation: Explain the relationship between [entity A] and [entity B] and its significance. Example: Explain the relationship between Alexander the Great and Aristotle and its significance.
+  trend prediction: Based on the historical behavior of [entity], what do you think it might do in the future? Example: Based on Tesla’s historical behavior, in which fields do you think it might innovate in the future?
+  outcome prediction: Based on the current situation, how do you predict [event] will develop? Example: Based on the current international situation, how do you predict climate change policies will develop?
+  contrast analysis: Compare and contrast the similarities and differences between [entity A] and [entity B] in [aspect]. Example: Compare and contrast the leadership styles of Steve Jobs and Bill Gates.
+  historical comparison: Compare the impact of [historical event A] and [historical event B]. Example: Compare the impact of World War I and World War II on the global order
+  evaluation and reflection: How do you evaluate the impact of [person/event] on [field]? Please explain your viewpoint. Example: How do you evaluate Martin Luther King’s impact on the civil rights movement? Please explain your viewpoint.
+  application and practice: How do you think [theory/method] can be applied to [practical issue]? Please provide specific suggestions. Example: How do you think machine learning technology can be applied to medical diagnostics? Please provide specific suggestions.
+  Generate the questions, the type of the questions, the placeholders, the naturalness of your generated questions (choose from high, medium, and unnatural), the difficulty of the generated questions (choose from hard, medium and easy) and dbpedia_entities (link the placeholders to dbpedia entities) in JSON format.
+"""
+
+q_example = """
+    The following is an example of the output format:
+    {'question': 'Compare and contrast the similarities and differences between the Apple iPhone and Samsung Galaxy in terms of user interface design.',
+    'type': 'contrast analysis',
+    'placeholders': {'entity A': 'Apple iPhone',
+    'entity B': 'Samsung Galaxy',
+    'aspect': 'user interface design'},
+    'naturalness': 'high',
+    'difficulty': 'medium',
+    'dbpedia_entities': {'entity A': 'http://dbpedia.org/resource/IPhone',
+    'entity B': 'http://dbpedia.org/resource/Samsung_Galaxy'}
+    }
+"""
+
 def run_sparql(entities):
     sparql = SPARQLWrapper("http://dbpedia.org/sparql")
 
