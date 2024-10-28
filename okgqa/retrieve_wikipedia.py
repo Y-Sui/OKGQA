@@ -31,7 +31,7 @@ async def fetch_wikipedia_page(
 ):
     if check_os_exists(entity) and not rerun:
         return
-    user_agent = "OpenKGQA/0.0 (yuansui08@gmail.com)"
+    user_agent = "OpenKGQA/0.0 ("")"
     wiki_wiki = wikipediaapi.Wikipedia(language="en", user_agent=user_agent)
     page_py = wiki_wiki.page(entity)
 
