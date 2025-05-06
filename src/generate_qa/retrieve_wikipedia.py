@@ -1,24 +1,26 @@
+"""
+This file is loaded by the post_process.py file, 
+it is used to retrieve the wikipedia pages for the entities in the dataframe
+"""
 import wikipediaapi
 import asyncio
 import aiofiles
 import nest_asyncio
 import os
 import pandas as pd
+import nltk
 from dotenv import load_dotenv
 from tqdm.asyncio import tqdm_asyncio
 from nltk.tokenize import sent_tokenize
 
 load_dotenv()
 nest_asyncio.apply()
-
-import nltk
-
 nltk.download('punkt')
 
 
 def check_os_exists(entity: str):
-    os.makedirs("OKG/wikipedia", exist_ok=True)
-    file_path = f"OKG/wikipedia/{entity}.txt"
+    os.makedirs("/mnt/250T_ceph/tristanysui/okgqa/wikipedia", exist_ok=True)
+    file_path = f"/mnt/250T_ceph/tristanysui/okgqa/wikipedia/{entity}.txt"
 
     if os.path.exists(file_path):
         print(f"File {file_path} already exists, skipping.")

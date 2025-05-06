@@ -8,7 +8,7 @@ from openai import OpenAI
 from typing import List, Tuple, Dict
 from pcst_fast import pcst_fast
 from preprocess import preprocess_graph
-from utils import load_all_graphs
+from src.utils import load_all_graphs
 
 
 def triplet_retrieval(graph, k):

@@ -6,7 +6,7 @@ import pandas as pd
 import pickle
 from tqdm import tqdm
 from typing import Callable, List, Optional
-from utils import load_all_graphs
+from src.utils import load_all_graphs
 from score_function_sG import TripleScorer
 
 def compute_ATS(

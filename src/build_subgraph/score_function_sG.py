@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, DistilBertForSequenceClassification, Ada
 from sklearn.model_selection import train_test_split
 import random
 import os
-from utils import load_all_graphs
+from src.utils import load_all_graphs
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):

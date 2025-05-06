@@ -2,7 +2,7 @@ import tiktoken
 import networkx as nx
 import numpy as np
 import pandas as pd
-from utils import load_all_graphs
+from src.utils import load_all_graphs
 
 
 def calculate_statistics(G: nx.DiGraph):

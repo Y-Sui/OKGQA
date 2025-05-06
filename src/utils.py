@@ -1,7 +1,13 @@
 import pickle
 import os
+import time
 import networkx as nx
 from SPARQLWrapper import SPARQLWrapper, JSON
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 
 # SPARQL query for single entity
@@ -201,3 +207,21 @@ def load_all_graphs(raw_graph_dir, sample_size=None):
                 print(f"Failed to load '{filename}': {e}")
 
     return graphs
+  
+  
+def call_llm(system_prompt: str, user_prompt: str, model_name: str = "gpt-4o-mini"):
+    attempt = 0
+    while attempt < 10:
+        try:
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error calling LLM: {e}")
+            print(f"Response: {response}")
+            attempt += 1
+            time.sleep(1) 
+    return None

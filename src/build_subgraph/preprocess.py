@@ -6,7 +6,7 @@ import pandas as pd
 from openai import OpenAI
 from typing import List, Tuple, Dict, Optional
 from dotenv import load_dotenv
-from utils import load_all_graphs
+from src.utils import load_all_graphs
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 

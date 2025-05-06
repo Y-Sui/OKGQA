@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
 import numpy as np
 from collections import Counter
-from utils import load_all_graphs, run_sparql
+from src.utils import load_all_graphs, run_sparql
 from preprocess import preprocess_graph
 
 # set the maximum number of retries
