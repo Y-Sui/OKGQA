@@ -1,28 +1,15 @@
 import os
-import json
 import pandas as pd
 import pickle
-import uuid
-import matplotlib.pyplot as plt
-import seaborn as sns
-from dotenv import load_dotenv
-from openai import OpenAI
-from tqdm import tqdm, trange
-import urllib
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import networkx as nx
-import numpy as np
-from collections import Counter
 from src.utils import load_all_graphs, run_sparql
-from preprocess import preprocess_graph
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+from .preprocess import preprocess_graph # use preprocess.py in the same directory
 
-# set the maximum number of retries
-MAX_RETRIES = 10
+
+# Set up the flag to preprocess the graph
 preprocess_graph_flag = False
-
-# load environment variables
-load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
 
 
 class PPR_Utils:
@@ -117,24 +104,29 @@ def build_up_graph(rdfs):
 def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
     raw_graph_pth = f"subgraphs/raw/{index}.pkl"
     pruned_ppr_graph_pth = f"subgraphs/pruned_ppr/{index}.pkl"
-
+    
     if rerun == False:
         if os.path.exists(raw_graph_pth) and os.path.exists(pruned_ppr_graph_pth):
             return index, True
 
     try:
+        # run the SPARQL query
         rdfs = run_sparql(entry_node)
+        # build the graph
         G, central_node = build_up_graph(rdfs)
+        # prune the graph
         ppr_G = ppr.prune_graph(G, central_node)
         
         if preprocess_graph_flag:
-            # build the ppr_G (generate embeddings)
+            pruned_ppr_preprocessed_graph_pth = f"subgraphs/pruned_ppr_preprocessed/{index}.pkl"
+            # build the ppr_G (generate embeddings) and save the preprocessed graph
             preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
-            pickle.dump(ppr_G, open(f"subgraphs/pruned_ppr_preprocessed/{index}.pkl", "wb"))
+            pickle.dump(ppr_G, open(pruned_ppr_preprocessed_graph_pth, "wb"))
             return index, True
             
-        pickle.dump(G, open(f"subgraphs/raw/{index}.pkl", "wb"))
-        pickle.dump(ppr_G, open(f"subgraphs/pruned_ppr/{index}.pkl", "wb"))
+        # save the raw and pruned graphs
+        pickle.dump(G, open(raw_graph_pth, "wb"))
+        pickle.dump(ppr_G, open(pruned_ppr_graph_pth, "wb"))
         return index, True
 
     except Exception as e:
@@ -143,9 +135,6 @@ def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
 
 
 if __name__ == "__main__":
-    # initialize OpenAI client
-    client = OpenAI(api_key=openai_api_key)
-
     df = pd.read_csv("query/filtered_questions_63a0f8a06513.csv", index_col=0)
     df["dbpedia_entities"] = df["dbpedia_entities"].apply(lambda x: eval(x))
     df["placeholders"] = df["placeholders"].apply(lambda x: eval(x))

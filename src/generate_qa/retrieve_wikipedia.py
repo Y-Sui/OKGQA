@@ -3,70 +3,78 @@ This file is loaded by the post_process.py file,
 it is used to retrieve the wikipedia pages for the entities in the dataframe
 """
 import wikipediaapi
-import asyncio
-import aiofiles
-import nest_asyncio
 import os
 import pandas as pd
 import nltk
 from dotenv import load_dotenv
-from tqdm.asyncio import tqdm_asyncio
+from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
+from multiprocessing import Pool, cpu_count
+from functools import partial
 
 load_dotenv()
-nest_asyncio.apply()
 nltk.download('punkt')
 
+WIKI_DIR = "/mnt/250T_ceph/tristanysui/okgqa/wikipedia"
+os.makedirs(WIKI_DIR, exist_ok=True)
 
 def check_os_exists(entity: str):
-    os.makedirs("/mnt/250T_ceph/tristanysui/okgqa/wikipedia", exist_ok=True)
-    file_path = f"/mnt/250T_ceph/tristanysui/okgqa/wikipedia/{entity}.txt"
+    file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
+    return os.path.exists(file_path)
 
-    if os.path.exists(file_path):
-        print(f"File {file_path} already exists, skipping.")
-        return True
-    return False
-
-
-async def fetch_wikipedia_page(
-    entity: str, sent_split: bool = True, rerun: bool = False
-):
+def fetch_wikipedia_page(entity: str, sent_split: bool = True, rerun: bool = False):
     if check_os_exists(entity) and not rerun:
         return
+    
     user_agent = "OpenKGQA/0.0 (yuansui08@gmail.com)"
     wiki_wiki = wikipediaapi.Wikipedia(language="en", user_agent=user_agent)
     page_py = wiki_wiki.page(entity)
 
-    grd_context = ""
-    if page_py.exists():
-        grd_context += "Page - Title: %s\n" % page_py.title
-        grd_context += "Page - Summary: %s" % page_py.summary
-        grd_context += "Page - Text: %s" % page_py.text
+    if not page_py.exists():
+        return
 
-        if sent_split:
-            sent_tokenize_list = sent_tokenize(grd_context)
+    grd_context = f"<title>{page_py.title}</title>\n"
+    grd_context += f"<summary>{page_py.summary}</summary>\n"
+    grd_context += f"<text>{page_py.text}</text>\n"
 
-            async with aiofiles.open(f"OKG/wikipedia/{entity}.txt", "w") as f:
-                for sentence in sent_tokenize_list:
-                    await f.write(sentence + "\n")
-        else:
-            async with aiofiles.open(f"OKG/wikipedia/{entity}.txt", "w") as f:
-                await f.write(grd_context)
+    file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
+    
+    if sent_split:
+        sent_tokenize_list = sent_tokenize(grd_context)
+        with open(file_path, "w", encoding='utf-8') as f:
+            f.write("\n".join(sent_tokenize_list))
     else:
-        print(f"Page {entity} does not exist")
+        with open(file_path, "w", encoding='utf-8') as f:
+            f.write(grd_context)
 
+def process_entity(args):
+    entity, sent_split, rerun = args
+    try:
+        fetch_wikipedia_page(entity, sent_split, rerun)
+        return True
+    except Exception as e:
+        print(f"Error fetching Wikipedia page for {entity}: {e}")
+        return False
 
-async def get_wikipedia_pages(entities: list[str], sent_split: bool, rerun: bool):
-    tasks = [fetch_wikipedia_page(entity, sent_split, rerun) for entity in entities]
-    progress_bar = tqdm_asyncio(total=len(tasks), desc="Fetching Wikipedia pages...")
-    for task in asyncio.as_completed(tasks):
-        await task
-        progress_bar.update(1)
-    progress_bar.close()
-
+def get_wikipedia_pages(entities: list[str], sent_split: bool, rerun: bool):
+    # Remove duplicates while preserving order
+    entities = list(dict.fromkeys(entities))
+    
+    # Prepare arguments for multiprocessing
+    args = [(entity, sent_split, rerun) for entity in entities]
+    
+    # Use number of CPU cores minus 1 to leave one core free
+    num_cores = max(1, cpu_count() - 1)
+    
+    with Pool(num_cores) as pool:
+        list(tqdm(
+            pool.imap(process_entity, args),
+            total=len(args),
+            desc="Fetching Wikipedia pages..."
+        ))
 
 def main():
-    data = pd.read_csv("OKG/filtered_questions_50_v3.csv", index_col=0)
+    data = pd.read_csv("/mnt/250T_ceph/tristanysui/okgqa/queries/questions_20250507_100.csv", index_col=0)
     data["dbpedia_entities"] = data["dbpedia_entities"].apply(lambda x: eval(x))
 
     entities = []
@@ -74,8 +82,7 @@ def main():
         for entity in entity_dic.values():
             entities.append(entity.split("/")[-1])
 
-    asyncio.run(get_wikipedia_pages(entities=entities, sent_split=False, rerun=True))
-
+    get_wikipedia_pages(entities=entities, sent_split=False, rerun=True)
 
 if __name__ == "__main__":
     main()

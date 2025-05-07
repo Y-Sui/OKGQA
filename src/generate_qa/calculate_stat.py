@@ -1,4 +1,5 @@
 import tiktoken
+import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -47,7 +48,8 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
 
 def calculate_stats(df):
     """
-    Calculate the token length of the questions, the number of questions, the number of unique dbpedia entities, the number of questions for each type, the number of questions for each naturalness, the number of questions for each difficulty
+    Calculate the token length of the questions, the number of questions, the number of unique dbpedia entities, 
+    the number of questions for each type, the number of questions for each naturalness, the number of questions for each difficulty
     """
     number_of_questions = len(df)
 
@@ -81,19 +83,19 @@ def calculate_stats(df):
     return type_counts, type_naturalness_counts, type_difficulty_counts
 
 
-def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
+def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, plot_dir):
     # set the style of the plots
     sns.set(style="whitegrid")
     plt.rcParams.update({'font.size': 10})
 
     plt.figure(figsize=(5, 3))
-    sns.barplot(x=type_counts.index, y=type_counts.values, palette='viridis')
+    sns.barplot(x=type_counts.index, y=type_counts.values, hue=type_counts.index, palette='viridis', legend=False)
     plt.title('Count of Each Type')
     plt.xlabel('Type')
     plt.ylabel('Count')
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig('figures/type_counts.png', dpi=300)
+    plt.savefig(os.path.join(plot_dir, 'type_counts.png'), dpi=300)
     plt.show()
 
     # plot the distribution of naturalness by type
@@ -109,7 +111,7 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
         title='Naturalness', loc='upper right', bbox_to_anchor=(1, 1.05), framealpha=0.4
     )
     plt.tight_layout()
-    plt.savefig('figures/naturalness_distribution.png', dpi=300)
+    plt.savefig(os.path.join(plot_dir, 'naturalness_distribution.png'), dpi=300)
     plt.show()
 
     # plot the distribution of difficulty by type
@@ -125,11 +127,11 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
         title='Difficulty', loc='upper right', bbox_to_anchor=(1, 1.05), framealpha=0.4
     )
     plt.tight_layout()
-    plt.savefig('figures/difficulty_distribution.png', dpi=300)
+    plt.savefig(os.path.join(plot_dir, 'difficulty_distribution.png'), dpi=300)
     plt.show()
     
     
-def plot_pan_stats(type_counts):
+def plot_pan_stats(type_counts, plot_dir):
     # Data for the chart
     categories = [
         'Cause Explanation', 
@@ -155,19 +157,35 @@ def plot_pan_stats(type_counts):
         '#ffcc33', 
         '#cc3300'
     ]
-    values = [type_counts[t.lower()] for t in categories]
+    
+    # Filter out categories with zero values
+    non_zero_data = []
+    non_zero_categories = []
+    non_zero_colors = []
+    
+    for i, category in enumerate(categories):
+        value = type_counts.get(category.lower(), 0)
+        if value > 0:
+            non_zero_data.append(value)
+            non_zero_categories.append(category)
+            non_zero_colors.append(colors[i])
+    
+    if not non_zero_data:
+        print("Warning: No data to plot in pie chart")
+        return
     
     plt.figure(figsize=(7, 7))
     plt.pie(
-        values, 
-        labels=categories, 
+        non_zero_data, 
+        labels=non_zero_categories, 
         autopct='%1.1f%%', 
         startangle=140, 
-        colors=colors, 
+        colors=non_zero_colors, 
         wedgeprops={'width': 0.3, 'edgecolor': 'w'},
-        explode=[0.003]*len(categories)
-        )
-    # plt.title('Distribution of Dataset - Donut Chart with Guide Lines')
+        explode=[0.003]*len(non_zero_data)
+    )
+    plt.savefig(os.path.join(plot_dir, 'pan_distribution.png'), dpi=300)
+    print(f"Pan distribution saved to {os.path.join(plot_dir, 'pan_distribution.png')}")
     plt.show()
     
     
@@ -176,8 +194,9 @@ def main():
     dataset_name = dir_path + f"/questions_20250506_200651_post_processed.csv"
     df = pd.read_csv(dataset_name)    
     type_counts, type_naturalness_counts, type_difficulty_counts = calculate_stats(df)
-    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts)
-    plot_pan_stats(type_counts)
+    plot_dir = os.path.join(dir_path, "plots")
+    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, plot_dir)
+    plot_pan_stats(type_counts, plot_dir)
 
 if __name__ == "__main__":
     main()

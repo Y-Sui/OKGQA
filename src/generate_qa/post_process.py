@@ -2,17 +2,49 @@ import pandas as pd
 import os
 import requests
 import asyncio
+import ast
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .retrieve_wikipedia import get_wikipedia_pages
 
+    
+def check_url(url: str) -> bool:
+    """
+    Specialized checker for DBpedia resources with enhanced headers and SSL handling
+    """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive'
+    }
 
-def check_url(url: str):
     try:
-        response = requests.get(url, timeout=5)  # Added a timeout for faster failure
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error checking URL {url}: {str(e)}")
+        # First try HEAD request
+        response = requests.head(
+            url.replace("http://", "https://"),
+            headers=headers,
+            timeout=15,
+            allow_redirects=True,
+            verify=True  # DBpedia uses valid SSL
+        )
+        
+        # Fallback to GET if HEAD is not allowed
+        if response.status_code == 405:
+            response = requests.get(
+                url.replace("http://", "https://"),
+                headers=headers,
+                timeout=15,
+                allow_redirects=True,
+                verify=True,
+                stream=True  # Don't download content
+            )
+            
+        return response.ok
+
+    except requests.exceptions.SSLError:
+        return False
+    except requests.exceptions.RequestException:
         return False
 
 
@@ -20,9 +52,8 @@ def post_process(df: pd.DataFrame):
     unique_sample = set()
     rows_to_keep = []
 
-    for i, row in df.iterrows():
+    for i, row in tqdm(df.iterrows(), total=len(df), desc="Post-processing samples"):
         type = row["type"]
-        question = row["question"]
         placeholders = row["placeholders"]
         dbpedia_entities = row["dbpedia_entities"]
         try:
@@ -34,16 +65,16 @@ def post_process(df: pd.DataFrame):
                 rows_to_keep.append(i)
 
         except Exception as e:
-            print(f"Error processing row {i}: {e}")
-            print("placeholders: ", placeholders)
-            print((row["type"], placeholders, dbpedia_entities))
-            print("question: ", question)
+            # print(f"Error processing row {i}: {e}")
+            # print("placeholders: ", placeholders)
+            # print((row["type"], placeholders, dbpedia_entities))
+            # print("question: ", question)
             pass
 
     print(f"Number of unique samples: {len(unique_sample)}")
     df_filtered = df.iloc[rows_to_keep].reset_index(drop=True)
 
-    return df_filtered
+    return df_filtered 
 
 
 def verify_and_filter_entities(df: pd.DataFrame):
@@ -60,20 +91,18 @@ def verify_and_filter_entities(df: pd.DataFrame):
 
         url_results = {}  # store the results of the futures
         # process the futures as they are completed
-        for future in tqdm(as_completed(futures), total=len(futures)):
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Verifying URLs"):
             result = future.result()
             url_results[futures[future]] = result
-            if not result:
-                print(f"Invalid URL found: {futures[future]}")
 
     # iterate through the DataFrame rows to filter out invalid ones
-    for index, row in tqdm(df.iterrows(), total=df.shape[0]):
+    for index, row in tqdm(df.iterrows(), total=df.shape[0], desc="Filtering invalid rows"):
         valid = True
         for key, url in row['dbpedia_entities'].items():    
             # if any URL is invalid, set valid to False and break
             if not url_results[(index, key)]:
                 valid = False
-                print(f"Row {index} invalid due to URL: {url}")
+                # print(f"Row {index} invalid due to URL: {url}")
                 break
         if valid:
             valid_rows.add(index)
@@ -87,12 +116,20 @@ def retrieve_wikipedia_pages(df: pd.DataFrame):
     """
     retrieve the wikipedia pages for the entities in the dataframe
     """
-    df['dbpedia_entities'] = df['dbpedia_entities'].apply(lambda x: eval(x))
+    try:
+        df['dbpedia_entities'] = df['dbpedia_entities'].apply(
+            lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+        )
+    except Exception as e:
+        print(f"Error parsing data: {e}")
+        print("Please check the format of dbpedia_entities column")
+        raise
+    
     entities = []
-    for entity_dic in df['dbpedia_entities']:
+    for entity_dic in tqdm(df['dbpedia_entities'], desc="Retrieving wikipedia pages"):
         for entity in entity_dic.values():
             entities.append(entity.split("/")[-1])
-    asyncio.run(get_wikipedia_pages(entities=entities, sent_split=False, rerun=True))
+    get_wikipedia_pages(entities=entities, sent_split=False, rerun=True)
 
 
 def main():

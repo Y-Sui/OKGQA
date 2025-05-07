@@ -1,16 +1,6 @@
 import os
 import json
 import pandas as pd
-import requests
-import uuid
-import matplotlib.pyplot as plt
-import seaborn as sns
-import networkx as nx
-import numpy as np
-import ast
-from collections import Counter
-from SPARQLWrapper import SPARQLWrapper, JSON
-from dotenv import load_dotenv
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..utils import call_llm
@@ -26,7 +16,7 @@ user_prompt = open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r").r
 def process_query(index):
     while True:
         try:
-            query = call_llm(system_prompt, user_prompt)
+            query = call_llm(system_prompt, user_prompt, model="gpt-4o")
             # remove the ```json and ``` from the query 
             query = query.strip().replace("```json", "").replace("```", "")
             query = json.loads(query)
@@ -37,9 +27,10 @@ def process_query(index):
             continue
         
 
-def multi_process_query(dataset_name:str, sample_size:int = 100):
+def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
     """
-    sample_size: the number of the seed instruction to generate (noted that the number of the generated queries will be larger than the sample_size, as we generate five queries for each seed instruction)
+    seed_sample_size: the number of the seed instruction to generate (noted that the number of the generated queries
+    will be larger than the sample_size, as we generate five queries for each seed instruction)
     
     dataset_name: the path to save the generated queries
     """
@@ -52,7 +43,7 @@ def multi_process_query(dataset_name:str, sample_size:int = 100):
     else:
         results = []
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = [executor.submit(process_query, index) for index in range(sample_size)]
+            futures = [executor.submit(process_query, index) for index in range(seed_sample_size)]
             for future in tqdm(as_completed(futures), total=len(futures), desc="Generating queries"):
                 if future.result() is not None:
                     results.append(future.result())

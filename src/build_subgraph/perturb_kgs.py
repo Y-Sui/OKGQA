@@ -7,7 +7,7 @@ import pickle
 from tqdm import tqdm
 from typing import Callable, List, Optional
 from src.utils import load_all_graphs
-from score_function_sG import TripleScorer
+from .score_function_sG import TripleScorer # use score_function_sG.py in the same directory
 
 def compute_ATS(
     G: nx.DiGraph,
