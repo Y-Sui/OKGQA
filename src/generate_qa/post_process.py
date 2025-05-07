@@ -1,42 +1,35 @@
 import pandas as pd
 import os
 import requests
-import asyncio
 import ast
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .retrieve_wikipedia import get_wikipedia_pages
+from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG, PATHS
 
     
 def check_url(url: str) -> bool:
     """
     Specialized checker for DBpedia resources with enhanced headers and SSL handling
     """
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive'
-    }
-
     try:
         # First try HEAD request
         response = requests.head(
             url.replace("http://", "https://"),
-            headers=headers,
-            timeout=15,
+            headers=HTTP_CONFIG["headers"],
+            timeout=HTTP_CONFIG["timeout"],
             allow_redirects=True,
-            verify=True  # DBpedia uses valid SSL
+            verify=HTTP_CONFIG["verify_ssl"]
         )
         
         # Fallback to GET if HEAD is not allowed
         if response.status_code == 405:
             response = requests.get(
                 url.replace("http://", "https://"),
-                headers=headers,
-                timeout=15,
+                headers=HTTP_CONFIG["headers"],
+                timeout=HTTP_CONFIG["timeout"],
                 allow_redirects=True,
-                verify=True,
+                verify=HTTP_CONFIG["verify_ssl"],
                 stream=True  # Don't download content
             )
             
@@ -82,7 +75,7 @@ def verify_and_filter_entities(df: pd.DataFrame):
     print(f"Total rows to process: {len(df)}")
 
     # use ThreadPoolExecutor for parallel calling of check_url()
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=PROCESSING_CONFIG["max_workers"]) as executor:
         futures = {}
         for index, row in df.iterrows():
             for key, url in row['dbpedia_entities'].items():
@@ -133,8 +126,7 @@ def retrieve_wikipedia_pages(df: pd.DataFrame):
 
 
 def main():
-    dir_path = "/mnt/250T_ceph/tristanysui/okgqa"
-    dataset_name = dir_path + f"/questions_20250506_200651.csv"
+    dataset_name = os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv")
     df = pd.read_csv(dataset_name)
     
     # Convert string representations of dictionaries to actual dictionaries
@@ -146,7 +138,7 @@ def main():
     df_filtered = verify_and_filter_entities(df_post_processed)
     print(df_filtered.head())
     retrieve_wikipedia_pages(df_filtered) # retrieve the wikipedia pages
-    df_filtered.to_csv(dir_path + f"/questions_20250506_200651_post_processed.csv")
+    df_filtered.to_csv(os.path.join(PATHS["queries_dir"], "questions_20250507_100_post_processed.csv"))
 
 if __name__ == "__main__":
     main()

@@ -5,18 +5,13 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..utils import call_llm
 from datetime import datetime
+from ..config.generate_qa_config import LLM_CONFIG, PROCESSING_CONFIG, PATHS, SEED_SAMPLE_SIZE
 
-
-system_prompt = """
-    You are a helpful assistant designed to output JSON.
-"""
-
-user_prompt = open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r").read()
 
 def process_query(index):
     while True:
         try:
-            query = call_llm(system_prompt, user_prompt, model="gpt-4o")
+            query = call_llm(LLM_CONFIG["system_prompt"], open(PATHS["prompt_file"], "r").read(), model=LLM_CONFIG["model"])
             # remove the ```json and ``` from the query 
             query = query.strip().replace("```json", "").replace("```", "")
             query = json.loads(query)
@@ -42,7 +37,7 @@ def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
     # if the dataset does not exist, create a new dataset
     else:
         results = []
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ThreadPoolExecutor(max_workers=PROCESSING_CONFIG["max_workers"]) as executor:
             futures = [executor.submit(process_query, index) for index in range(seed_sample_size)]
             for future in tqdm(as_completed(futures), total=len(futures), desc="Generating queries"):
                 if future.result() is not None:
@@ -55,10 +50,8 @@ def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
 
 
 def main():
-    sample_size = 100
-    dir_path = "/mnt/250T_ceph/tristanysui/okgqa"
-    dataset_name = dir_path + f"/questions_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{sample_size}.csv"
-    multi_process_query(dataset_name, sample_size=sample_size)
+    dataset_name = os.path.join(PATHS["queries_dir"], f"questions_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{SEED_SAMPLE_SIZE}.csv")
+    multi_process_query(dataset_name, sample_size=SEED_SAMPLE_SIZE)
 
 if __name__ == "__main__":
     main()

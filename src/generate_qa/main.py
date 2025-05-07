@@ -5,23 +5,22 @@ from datetime import datetime
 from .generate_query import multi_process_query
 from .post_process import post_process, verify_and_filter_entities, retrieve_wikipedia_pages
 from .calculate_stat import calculate_stats, plot_stats, plot_pan_stats
-
+from ..config.generate_qa_config import (
+    SEED_SAMPLE_SIZE, RE_SAMPLE, TIMESTAMP_FORMAT,
+    PATHS
+)
 
 def main():
     # Configuration
-    seed_sample_size = 100
-    re_sample = False # use the existing dataset
-    base_dir = "/mnt/250T_ceph/tristanysui/okgqa"
-    # timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    timestamp = datetime.now().strftime('%Y%m%d')
+    timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
     
     # Generate raw queries
-    os.makedirs(os.path.join(base_dir, "queries"), exist_ok=True)
-    raw_dataset_path = os.path.join(base_dir, "queries", f"questions_{timestamp}_{seed_sample_size}.csv")
+    os.makedirs(PATHS["queries_dir"], exist_ok=True)
+    raw_dataset_path = os.path.join(PATHS["queries_dir"], f"questions_{timestamp}_{SEED_SAMPLE_SIZE}.csv")
     
-    print(f"Generating queries based on {seed_sample_size} seed instructions...")
-    if not os.path.exists(raw_dataset_path) or re_sample == True:
-        df_raw = multi_process_query(raw_dataset_path, seed_sample_size=seed_sample_size)
+    print(f"Generating queries based on {SEED_SAMPLE_SIZE} seed instructions...")
+    if not os.path.exists(raw_dataset_path) or RE_SAMPLE:
+        df_raw = multi_process_query(raw_dataset_path, seed_sample_size=SEED_SAMPLE_SIZE)
     else:
         df_raw = pd.read_csv(raw_dataset_path)
         try:
@@ -40,7 +39,6 @@ def main():
     print("\nPost-processing queries...")
     df_post_processed = post_process(df_raw)
     
-    
     # Verify and filter entities
     print("\nVerifying and filtering entities...")
     df_final = verify_and_filter_entities(df_post_processed)
@@ -53,20 +51,16 @@ def main():
     # Retrieve wikipedia pages
     print("\nRetrieving wikipedia pages...")
     retrieve_wikipedia_pages(df_final)
-    df_final.to_csv(os.path.join(base_dir, "queries", f"questions_{timestamp}_{seed_sample_size}_post_processed.csv"))
+    df_final.to_csv(os.path.join(PATHS["queries_dir"], f"questions_{timestamp}_{SEED_SAMPLE_SIZE}_post_processed.csv"))
     
     # Calculate statistics
     type_counts, type_naturalness_counts, type_difficulty_counts = calculate_stats(df_final)
-    print(type_counts)
-    print(type_naturalness_counts)
-    print(type_difficulty_counts)
     
-    os.makedirs(os.path.join(base_dir, "plots"), exist_ok=True)
-    plot_dir = os.path.join(base_dir, "plots")
+    os.makedirs(PATHS["plots_dir"], exist_ok=True)
     
     # Plot statistics
-    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, plot_dir)
-    plot_pan_stats(type_counts, plot_dir)
+    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, PATHS["plots_dir"])
+    plot_pan_stats(type_counts, PATHS["plots_dir"])
 
 if __name__ == "__main__":
     main() 

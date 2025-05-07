@@ -6,28 +6,29 @@ import wikipediaapi
 import os
 import pandas as pd
 import nltk
-from dotenv import load_dotenv
 from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
-from multiprocessing import Pool, cpu_count
-from functools import partial
+from multiprocessing import Pool      
+from ..config.generate_qa_config import WIKI_DIR, WIKI_CONFIG, PROCESSING_CONFIG, PATHS
 
-load_dotenv()
-nltk.download('punkt')
+# if nltk is not installed, install it
+if not nltk.data.find('tokenizers/punkt'):
+    nltk.download('punkt')
 
-WIKI_DIR = "/mnt/250T_ceph/tristanysui/okgqa/wikipedia"
 os.makedirs(WIKI_DIR, exist_ok=True)
 
 def check_os_exists(entity: str):
     file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
     return os.path.exists(file_path)
 
-def fetch_wikipedia_page(entity: str, sent_split: bool = True, rerun: bool = False):
+def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
     if check_os_exists(entity) and not rerun:
         return
     
-    user_agent = "OpenKGQA/0.0 (yuansui08@gmail.com)"
-    wiki_wiki = wikipediaapi.Wikipedia(language="en", user_agent=user_agent)
+    wiki_wiki = wikipediaapi.Wikipedia(
+        language=WIKI_CONFIG["language"],
+        user_agent=WIKI_CONFIG["user_agent"]
+    )
     page_py = wiki_wiki.page(entity)
 
     if not page_py.exists():
@@ -56,17 +57,14 @@ def process_entity(args):
         print(f"Error fetching Wikipedia page for {entity}: {e}")
         return False
 
-def get_wikipedia_pages(entities: list[str], sent_split: bool, rerun: bool):
+def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
     # Remove duplicates while preserving order
     entities = list(dict.fromkeys(entities))
     
     # Prepare arguments for multiprocessing
     args = [(entity, sent_split, rerun) for entity in entities]
     
-    # Use number of CPU cores minus 1 to leave one core free
-    num_cores = max(1, cpu_count() - 1)
-    
-    with Pool(num_cores) as pool:
+    with Pool(PROCESSING_CONFIG["wiki_workers"]) as pool:
         list(tqdm(
             pool.imap(process_entity, args),
             total=len(args),
@@ -74,7 +72,7 @@ def get_wikipedia_pages(entities: list[str], sent_split: bool, rerun: bool):
         ))
 
 def main():
-    data = pd.read_csv("/mnt/250T_ceph/tristanysui/okgqa/queries/questions_20250507_100.csv", index_col=0)
+    data = pd.read_csv(os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv"), index_col=0)
     data["dbpedia_entities"] = data["dbpedia_entities"].apply(lambda x: eval(x))
 
     entities = []
@@ -82,7 +80,7 @@ def main():
         for entity in entity_dic.values():
             entities.append(entity.split("/")[-1])
 
-    get_wikipedia_pages(entities=entities, sent_split=False, rerun=True)
+    get_wikipedia_pages(entities=entities)
 
 if __name__ == "__main__":
     main()
