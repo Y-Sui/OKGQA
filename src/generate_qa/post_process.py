@@ -5,7 +5,7 @@ import ast
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .retrieve_wikipedia import get_wikipedia_pages
-from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG, PATHS
+from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG
 
     
 def check_url(url: str) -> bool:
@@ -140,7 +140,7 @@ def verify_and_filter_entities(df: pd.DataFrame):
     return filtered_df
 
 
-def retrieve_wikipedia_pages(df: pd.DataFrame):
+def retrieve_wikipedia_pages(df: pd.DataFrame, wiki_dir: str):
     """
     Retrieve Wikipedia pages for all entities in the DataFrame.
     
@@ -162,8 +162,8 @@ def retrieve_wikipedia_pages(df: pd.DataFrame):
     entities = []
     for entity_dic in tqdm(df['dbpedia_entities'], desc="Retrieving wikipedia pages"):
         for entity in entity_dic.values():
-            entities.append(entity.split("/")[-1])
-    get_wikipedia_pages(entities=entities, sent_split=False, rerun=True)
+            entities.append(entity.split("/")[-1])  
+    get_wikipedia_pages(entities=entities, sent_split=False, rerun=True, wiki_dir=wiki_dir)
 
 
 def main():

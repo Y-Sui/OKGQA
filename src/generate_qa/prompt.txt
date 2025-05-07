@@ -16,7 +16,7 @@ contrast analysis: Compare and contrast the similarities and differences between
 
 historical comparison: Compare the impact of [historical event A] and [historical event B]. Example: Compare the impact of World War I and World War II on the global order
 
-evaluation and reflection: How do you evaluate the impact of [person/event] on [field]? Please explain your viewpoint. Example: How do you evaluate Martin Luther King’s impact on the civil rights movement? Please explain your viewpoint.
+evaluation and reflection: How do you evaluate the impact of [person/event] on [field]? Please explain your viewpoint. Example: How do you evaluate Martin Luther King's impact on the civil rights movement? Please explain your viewpoint.
 
 application and practice: How do you think [theory/method] can be applied to [practical issue]? Please provide specific suggestions. Example: How do you think machine learning technology can be applied to medical diagnostics? Please provide specific suggestions.
 

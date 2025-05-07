@@ -2,8 +2,6 @@ import tiktoken
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
-from ..config.generate_qa_config import PLOTS_DIR, PATHS
 
 
 def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613"):
@@ -88,11 +86,10 @@ def calculate_stats(df):
     return type_counts, type_naturalness_counts, type_difficulty_counts
 
 
-def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
+def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, plots_dir):
     """
     Plot the statistics of the generated dataset.
     """
-    os.makedirs(PLOTS_DIR, exist_ok=True)
     # set the style of the plots
     sns.set(style="whitegrid")
     plt.rcParams.update({'font.size': 10})
@@ -104,7 +101,7 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
     plt.ylabel('Count')
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig(os.path.join(PLOTS_DIR, 'type_counts.png'), dpi=300)
+    plt.savefig(os.path.join(plots_dir, 'type_counts.png'), dpi=300)
     plt.show()
 
     # plot the distribution of naturalness by type
@@ -120,7 +117,7 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
         title='Naturalness', loc='upper right', bbox_to_anchor=(1, 1.05), framealpha=0.4
     )
     plt.tight_layout()
-    plt.savefig(os.path.join(PLOTS_DIR, 'naturalness_distribution.png'), dpi=300)
+    plt.savefig(os.path.join(plots_dir, 'naturalness_distribution.png'), dpi=300)
     plt.show()
 
     # plot the distribution of difficulty by type
@@ -136,15 +133,14 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
         title='Difficulty', loc='upper right', bbox_to_anchor=(1, 1.05), framealpha=0.4
     )
     plt.tight_layout()
-    plt.savefig(os.path.join(PLOTS_DIR, 'difficulty_distribution.png'), dpi=300)
+    plt.savefig(os.path.join(plots_dir, 'difficulty_distribution.png'), dpi=300)
     plt.show()
     
     
-def plot_pan_stats(type_counts):
+def plot_pan_stats(type_counts, plots_dir):
     """
     Plot the PAN distribution of the generated dataset.
     """
-    os.makedirs(PLOTS_DIR, exist_ok=True)
     # Data for the chart
     categories = [
         'Cause Explanation', 
@@ -197,17 +193,6 @@ def plot_pan_stats(type_counts):
         wedgeprops={'width': 0.3, 'edgecolor': 'w'},
         explode=[0.003]*len(non_zero_data)
     )
-    plt.savefig(os.path.join(PLOTS_DIR, 'pan_distribution.png'), dpi=300)
-    print(f"Pan distribution saved to {os.path.join(PLOTS_DIR, 'pan_distribution.png')}")
+    plt.savefig(os.path.join(plots_dir, 'pan_distribution.png'), dpi=300)
+    print(f"Pan distribution saved to {os.path.join(plots_dir, 'pan_distribution.png')}")
     plt.show()
-    
-    
-def main():
-    dataset_name = os.path.join(PATHS["queries_dir"], "questions_20250507_100_post_processed.csv")
-    df = pd.read_csv(dataset_name)    
-    type_counts, type_naturalness_counts, type_difficulty_counts = calculate_stats(df)
-    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts)
-    plot_pan_stats(type_counts)
-
-if __name__ == "__main__":
-    main()

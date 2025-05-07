@@ -4,8 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..utils import call_llm
-from datetime import datetime
-from ..config.generate_qa_config import LLM_CONFIG, PROCESSING_CONFIG, PATHS, SEED_SAMPLE_SIZE
+from ..config.generate_qa_config import LLM_CONFIG, PROCESSING_CONFIG, SEED_SAMPLE_SIZE
 
 
 def process_query(index):
@@ -32,7 +31,6 @@ def process_query(index):
                 temperature=LLM_CONFIG["temperature"],
                 max_tokens=LLM_CONFIG["max_tokens"]
             )
-            print(query)
             # remove the ```json and ``` from the query 
             query = query.strip().replace("```json", "").replace("```", "")
             query = json.loads(query)
@@ -42,7 +40,7 @@ def process_query(index):
             continue
         
 
-def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
+def multi_process_query(dataset_name:str, seed_sample_size:int = SEED_SAMPLE_SIZE):
     """
     Generate multiple queries in parallel using ThreadPoolExecutor.
     
@@ -77,16 +75,3 @@ def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
     df.to_csv(dataset_name, index=False)
     print(df.head())
     return df
-
-
-def main():
-    """
-    Main function to generate queries independently.
-    Creates a new dataset with timestamp in the filename.
-    """
-    dataset_name = os.path.join(PATHS["queries_dir"], f"questions_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{SEED_SAMPLE_SIZE}.csv")
-    multi_process_query(dataset_name, sample_size=SEED_SAMPLE_SIZE)
-
-if __name__ == "__main__":
-    main()
-

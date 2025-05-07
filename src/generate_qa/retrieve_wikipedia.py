@@ -9,15 +9,13 @@ import nltk
 from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
 from multiprocessing import Pool      
-from ..config.generate_qa_config import WIKI_DIR, WIKI_CONFIG, PROCESSING_CONFIG, PATHS
+from ..config.generate_qa_config import WIKI_CONFIG, PROCESSING_CONFIG
 
 # if nltk is not installed, install it
 if not nltk.data.find('tokenizers/punkt'):
     nltk.download('punkt')
 
-os.makedirs(WIKI_DIR, exist_ok=True)
-
-def check_os_exists(entity: str):
+def check_os_exists(entity: str, wiki_dir: str):
     """
     Check if a Wikipedia page for an entity already exists in the local storage.
     
@@ -27,10 +25,10 @@ def check_os_exists(entity: str):
     Returns:
         bool: True if the Wikipedia page exists locally, False otherwise
     """
-    file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
+    file_path = os.path.join(wiki_dir, f"{entity}.txt")
     return os.path.exists(file_path)
 
-def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
+def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"], wiki_dir: str = ""):
     """
     Fetch and save a Wikipedia page for a given entity.
     
@@ -43,7 +41,7 @@ def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split
         The page is saved in a text file with the entity name as filename.
         The content includes title, summary, and full text.
     """
-    if check_os_exists(entity) and not rerun:
+    if check_os_exists(entity, wiki_dir) and not rerun:
         return
     
     wiki_wiki = wikipediaapi.Wikipedia(
@@ -59,7 +57,7 @@ def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split
     grd_context += f"<summary>{page_py.summary}</summary>\n"
     grd_context += f"<text>{page_py.text}</text>\n"
 
-    file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
+    file_path = os.path.join(wiki_dir, f"{entity}.txt")
     
     if sent_split:
         sent_tokenize_list = sent_tokenize(grd_context)
@@ -81,13 +79,13 @@ def process_entity(args):
     """
     entity, sent_split, rerun = args
     try:
-        fetch_wikipedia_page(entity, sent_split, rerun)
+        fetch_wikipedia_page(entity, sent_split, rerun, wiki_dir)
         return True
     except Exception as e:
         print(f"Error fetching Wikipedia page for {entity}: {e}")
         return False
 
-def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
+def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"], wiki_dir: str = ""):
     """
     Retrieve Wikipedia pages for multiple entities in parallel.
     

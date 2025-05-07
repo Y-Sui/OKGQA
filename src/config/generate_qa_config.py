@@ -4,6 +4,7 @@ import os
 BASE_DIR = "/mnt/250T_ceph/tristanysui/okgqa"
 WIKI_DIR = os.path.join(BASE_DIR, "wikipedia")
 PLOTS_DIR = os.path.join(BASE_DIR, "plots")
+QUERY_DIR = os.path.join(BASE_DIR, "queries")
 
 # Generation parameters
 SEED_SAMPLE_SIZE = 5
@@ -42,9 +43,3 @@ PROCESSING_CONFIG = {
     "max_workers": os.cpu_count(),
     "wiki_workers": max(1, os.cpu_count() - 1)
 }
-
-# File paths
-PATHS = {
-    "queries_dir": os.path.join(BASE_DIR, "queries"),
-    "plots_dir": os.path.join(BASE_DIR, "plots"),
-} 
