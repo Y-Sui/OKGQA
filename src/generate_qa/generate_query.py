@@ -9,25 +9,55 @@ from ..config.generate_qa_config import LLM_CONFIG, PROCESSING_CONFIG, PATHS, SE
 
 
 def process_query(index):
+    """
+    Process a single query generation request using LLM.
+    
+    Args:
+        index (int): Index of the query being generated, used for error reporting
+        
+    Returns:
+        dict: Generated query in JSON format containing question, type, placeholders, and DBpedia entities
+        
+    Note:
+        This function will retry indefinitely until a valid query is generated
+    """
     while True:
+        system_prompt = "You are a helpful assistant designed to output JSON."
+        user_prompt = open(os.path.join(os.path.dirname(__file__), "prompt.txt"), "r").read()
         try:
-            query = call_llm(LLM_CONFIG["system_prompt"], open(PATHS["prompt_file"], "r").read(), model=LLM_CONFIG["model"])
+            query = call_llm(
+                system_prompt=system_prompt, 
+                user_prompt=user_prompt, 
+                model_name=LLM_CONFIG["model_name"],
+                temperature=LLM_CONFIG["temperature"],
+                max_tokens=LLM_CONFIG["max_tokens"]
+            )
+            print(query)
             # remove the ```json and ``` from the query 
             query = query.strip().replace("```json", "").replace("```", "")
             query = json.loads(query)
             return query
         except Exception as e:
             print(f"Error generated query [index {index}]: {e}")
-            print(f"Error generated query: {query}")
             continue
         
 
 def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
     """
-    seed_sample_size: the number of the seed instruction to generate (noted that the number of the generated queries
-    will be larger than the sample_size, as we generate five queries for each seed instruction)
+    Generate multiple queries in parallel using ThreadPoolExecutor.
     
-    dataset_name: the path to save the generated queries
+    Args:
+        dataset_name (str): Path where the generated dataset will be saved
+        seed_sample_size (int, optional): Number of seed instructions to generate. 
+            Note that the actual number of generated queries will be larger as 
+            multiple queries are generated for each seed instruction. Defaults to 100.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing the generated queries with columns:
+            - question: The generated question
+            - type: Question type
+            - placeholders: Dictionary of placeholders
+            - dbpedia_entities: Dictionary of DBpedia entities
     """
     # if the dataset exists, read the dataset
     if os.path.exists(dataset_name):
@@ -50,6 +80,10 @@ def multi_process_query(dataset_name:str, seed_sample_size:int = 100):
 
 
 def main():
+    """
+    Main function to generate queries independently.
+    Creates a new dataset with timestamp in the filename.
+    """
     dataset_name = os.path.join(PATHS["queries_dir"], f"questions_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{SEED_SAMPLE_SIZE}.csv")
     multi_process_query(dataset_name, sample_size=SEED_SAMPLE_SIZE)
 

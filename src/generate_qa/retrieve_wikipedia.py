@@ -18,10 +18,31 @@ if not nltk.data.find('tokenizers/punkt'):
 os.makedirs(WIKI_DIR, exist_ok=True)
 
 def check_os_exists(entity: str):
+    """
+    Check if a Wikipedia page for an entity already exists in the local storage.
+    
+    Args:
+        entity (str): Name of the entity to check
+        
+    Returns:
+        bool: True if the Wikipedia page exists locally, False otherwise
+    """
     file_path = os.path.join(WIKI_DIR, f"{entity}.txt")
     return os.path.exists(file_path)
 
 def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
+    """
+    Fetch and save a Wikipedia page for a given entity.
+    
+    Args:
+        entity (str): Name of the entity to fetch Wikipedia page for
+        sent_split (bool, optional): Whether to split the text into sentences. Defaults to WIKI_CONFIG["sent_split"]
+        rerun (bool, optional): Whether to re-fetch existing pages. Defaults to WIKI_CONFIG["rerun"]
+        
+    Note:
+        The page is saved in a text file with the entity name as filename.
+        The content includes title, summary, and full text.
+    """
     if check_os_exists(entity) and not rerun:
         return
     
@@ -49,6 +70,15 @@ def fetch_wikipedia_page(entity: str, sent_split: bool = WIKI_CONFIG["sent_split
             f.write(grd_context)
 
 def process_entity(args):
+    """
+    Process a single entity for Wikipedia page retrieval.
+    
+    Args:
+        args (tuple): Tuple containing (entity, sent_split, rerun)
+        
+    Returns:
+        bool: True if successful, False if an error occurred
+    """
     entity, sent_split, rerun = args
     try:
         fetch_wikipedia_page(entity, sent_split, rerun)
@@ -58,6 +88,18 @@ def process_entity(args):
         return False
 
 def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sent_split"], rerun: bool = WIKI_CONFIG["rerun"]):
+    """
+    Retrieve Wikipedia pages for multiple entities in parallel.
+    
+    Args:
+        entities (list[str]): List of entity names to fetch Wikipedia pages for
+        sent_split (bool, optional): Whether to split text into sentences. Defaults to WIKI_CONFIG["sent_split"]
+        rerun (bool, optional): Whether to re-fetch existing pages. Defaults to WIKI_CONFIG["rerun"]
+        
+    Note:
+        Uses multiprocessing to fetch pages in parallel
+        Removes duplicate entities while preserving order
+    """
     # Remove duplicates while preserving order
     entities = list(dict.fromkeys(entities))
     
@@ -72,6 +114,10 @@ def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sen
         ))
 
 def main():
+    """
+    Main function to run Wikipedia page retrieval independently.
+    Processes a specific dataset and retrieves pages for all entities.
+    """
     data = pd.read_csv(os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv"), index_col=0)
     data["dbpedia_entities"] = data["dbpedia_entities"].apply(lambda x: eval(x))
 

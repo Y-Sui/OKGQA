@@ -10,7 +10,17 @@ from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG, PATHS
     
 def check_url(url: str) -> bool:
     """
-    Specialized checker for DBpedia resources with enhanced headers and SSL handling
+    Check if a DBpedia URL is valid and accessible.
+    
+    Args:
+        url (str): The DBpedia URL to check
+        
+    Returns:
+        bool: True if the URL is valid and accessible, False otherwise
+        
+    Note:
+        Uses both HEAD and GET requests with proper headers and SSL verification.
+        Falls back to GET request if HEAD is not allowed.
     """
     try:
         # First try HEAD request
@@ -42,6 +52,19 @@ def check_url(url: str) -> bool:
 
 
 def post_process(df: pd.DataFrame):
+    """
+    Post-process the generated queries to remove duplicates and validate format.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing raw generated queries
+        
+    Returns:
+        pd.DataFrame: Filtered DataFrame with unique queries based on type, 
+            placeholders, and DBpedia entities
+        
+    Note:
+        Uses frozenset to make dictionaries hashable for duplicate detection
+    """
     unique_sample = set()
     rows_to_keep = []
 
@@ -71,6 +94,18 @@ def post_process(df: pd.DataFrame):
 
 
 def verify_and_filter_entities(df: pd.DataFrame):
+    """
+    Verify and filter entities by checking if their DBpedia URLs are valid.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing queries with DBpedia entities
+        
+    Returns:
+        pd.DataFrame: Filtered DataFrame containing only queries with valid entities
+        
+    Note:
+        Uses parallel processing to check URLs efficiently
+    """
     valid_rows = set()
     print(f"Total rows to process: {len(df)}")
 
@@ -107,7 +142,13 @@ def verify_and_filter_entities(df: pd.DataFrame):
 
 def retrieve_wikipedia_pages(df: pd.DataFrame):
     """
-    retrieve the wikipedia pages for the entities in the dataframe
+    Retrieve Wikipedia pages for all entities in the DataFrame.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing queries with DBpedia entities
+        
+    Note:
+        Extracts entity names from DBpedia URLs and retrieves corresponding Wikipedia pages
     """
     try:
         df['dbpedia_entities'] = df['dbpedia_entities'].apply(
@@ -126,6 +167,10 @@ def retrieve_wikipedia_pages(df: pd.DataFrame):
 
 
 def main():
+    """
+    Main function to run post-processing independently.
+    Processes a specific dataset and saves the results.
+    """
     dataset_name = os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv")
     df = pd.read_csv(dataset_name)
     

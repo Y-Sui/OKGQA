@@ -6,11 +6,24 @@ from .generate_query import multi_process_query
 from .post_process import post_process, verify_and_filter_entities, retrieve_wikipedia_pages
 from .calculate_stat import calculate_stats, plot_stats, plot_pan_stats
 from ..config.generate_qa_config import (
-    SEED_SAMPLE_SIZE, RE_SAMPLE, TIMESTAMP_FORMAT,
-    PATHS
+    SEED_SAMPLE_SIZE, RE_SAMPLE, TIMESTAMP_FORMAT,      
+    PATHS, PLOTS_DIR
 )
 
 def main():
+    """
+    Main function to orchestrate the QA generation pipeline.
+    
+    Workflow:
+    1. Generates raw queries using LLM
+    2. Post-processes queries to remove duplicates and validate format
+    3. Verifies and filters entities by checking their URLs
+    4. Retrieves Wikipedia pages for valid entities
+    5. Calculates and plots statistics about the generated dataset
+    
+    The function handles both new generation and loading of existing datasets
+    based on the RE_SAMPLE configuration.
+    """
     # Configuration
     timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
     
@@ -55,12 +68,10 @@ def main():
     
     # Calculate statistics
     type_counts, type_naturalness_counts, type_difficulty_counts = calculate_stats(df_final)
-    
-    os.makedirs(PATHS["plots_dir"], exist_ok=True)
-    
+
     # Plot statistics
-    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts, PATHS["plots_dir"])
-    plot_pan_stats(type_counts, PATHS["plots_dir"])
+    plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts)
+    plot_pan_stats(type_counts)
 
 if __name__ == "__main__":
     main() 

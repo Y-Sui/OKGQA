@@ -6,14 +6,15 @@ WIKI_DIR = os.path.join(BASE_DIR, "wikipedia")
 PLOTS_DIR = os.path.join(BASE_DIR, "plots")
 
 # Generation parameters
-SEED_SAMPLE_SIZE = 100
+SEED_SAMPLE_SIZE = 5
 RE_SAMPLE = False
 TIMESTAMP_FORMAT = '%Y%m%d'
 
 # LLM parameters
 LLM_CONFIG = {
-    "model": "gpt-4o",
-    "system_prompt": "You are a helpful assistant designed to output JSON."
+    "model_name": "gpt-4o",
+    "temperature": 0.7,
+    "max_tokens": 4000  
 }
 
 # HTTP request parameters
@@ -24,7 +25,7 @@ HTTP_CONFIG = {
         'Accept-Language': 'en-US,en;q=0.9',
         'Connection': 'keep-alive'
     },
-    "timeout": 15,
+    "timeout": 5,
     "verify_ssl": True
 }
 
@@ -46,5 +47,4 @@ PROCESSING_CONFIG = {
 PATHS = {
     "queries_dir": os.path.join(BASE_DIR, "queries"),
     "plots_dir": os.path.join(BASE_DIR, "plots"),
-    "prompt_file": os.path.join(os.path.dirname(__file__), "prompt.txt")
 } 

@@ -89,6 +89,10 @@ def calculate_stats(df):
 
 
 def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
+    """
+    Plot the statistics of the generated dataset.
+    """
+    os.makedirs(PLOTS_DIR, exist_ok=True)
     # set the style of the plots
     sns.set(style="whitegrid")
     plt.rcParams.update({'font.size': 10})
@@ -137,6 +141,10 @@ def plot_stats(type_counts, type_naturalness_counts, type_difficulty_counts):
     
     
 def plot_pan_stats(type_counts):
+    """
+    Plot the PAN distribution of the generated dataset.
+    """
+    os.makedirs(PLOTS_DIR, exist_ok=True)
     # Data for the chart
     categories = [
         'Cause Explanation', 
