@@ -77,7 +77,7 @@ def process_entity(args):
     Returns:
         bool: True if successful, False if an error occurred
     """
-    entity, sent_split, rerun = args
+    entity, sent_split, rerun, wiki_dir = args
     try:
         fetch_wikipedia_page(entity, sent_split, rerun, wiki_dir)
         return True
@@ -102,7 +102,7 @@ def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sen
     entities = list(dict.fromkeys(entities))
     
     # Prepare arguments for multiprocessing
-    args = [(entity, sent_split, rerun) for entity in entities]
+    args = [(entity, sent_split, rerun, wiki_dir) for entity in entities]
     
     with Pool(PROCESSING_CONFIG["wiki_workers"]) as pool:
         list(tqdm(
@@ -110,21 +110,3 @@ def get_wikipedia_pages(entities: list[str], sent_split: bool = WIKI_CONFIG["sen
             total=len(args),
             desc="Fetching Wikipedia pages..."
         ))
-
-def main():
-    """
-    Main function to run Wikipedia page retrieval independently.
-    Processes a specific dataset and retrieves pages for all entities.
-    """
-    data = pd.read_csv(os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv"), index_col=0)
-    data["dbpedia_entities"] = data["dbpedia_entities"].apply(lambda x: eval(x))
-
-    entities = []
-    for entity_dic in data["dbpedia_entities"]:
-        for entity in entity_dic.values():
-            entities.append(entity.split("/")[-1])
-
-    get_wikipedia_pages(entities=entities)
-
-if __name__ == "__main__":
-    main()

@@ -5,7 +5,7 @@ import ast
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .retrieve_wikipedia import get_wikipedia_pages
-from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG
+from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG, QUERY_DIR
 
     
 def check_url(url: str) -> bool:
@@ -171,7 +171,7 @@ def main():
     Main function to run post-processing independently.
     Processes a specific dataset and saves the results.
     """
-    dataset_name = os.path.join(PATHS["queries_dir"], "questions_20250507_100.csv")
+    dataset_name = os.path.join(QUERY_DIR, "questions_20250507_100.csv")
     df = pd.read_csv(dataset_name)
     
     # Convert string representations of dictionaries to actual dictionaries
@@ -183,7 +183,7 @@ def main():
     df_filtered = verify_and_filter_entities(df_post_processed)
     print(df_filtered.head())
     retrieve_wikipedia_pages(df_filtered) # retrieve the wikipedia pages
-    df_filtered.to_csv(os.path.join(PATHS["queries_dir"], "questions_20250507_100_post_processed.csv"))
+    df_filtered.to_csv(os.path.join(QUERY_DIR, "questions_20250507_100_post_processed.csv"))
 
 if __name__ == "__main__":
     main()
