@@ -2,24 +2,22 @@ import os
 import pandas as pd
 import pickle
 import networkx as nx
-from src.utils import load_all_graphs, run_sparql
+from ..utils import load_all_graphs, run_sparql
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
-from .preprocess import preprocess_graph # use preprocess.py in the same directory
-
-
-# Set up the flag to preprocess the graph
-preprocess_graph_flag = False
+from .preprocess import preprocess_graph
+from ..config.config import SUBGRAPH_CONFIG, PROCESSING_CONFIG, QUERY_DIR, TIMESTAMP, SEED_SAMPLE_SIZE
+from .statistics_graph import avg_statistics_of_G
 
 
 class PPR_Utils:
     # PPR to prune the graph
     def __init__(self):
-        # define the parameters
-        self.alpha = 0.85
-        self.tol = 1e-6
-        self.max_iter = 100
-        self.threshold = 1e-5  # threshold for pruning, if the node's PPR is less than the threshold, it will be pruned
+        # define the parameters from config
+        self.alpha = SUBGRAPH_CONFIG["ppr_params"]["alpha"]
+        self.tol = SUBGRAPH_CONFIG["ppr_params"]["tol"]
+        self.max_iter = SUBGRAPH_CONFIG["ppr_params"]["max_iter"]
+        self.threshold = SUBGRAPH_CONFIG["ppr_params"]["threshold"]
 
     def calculate_ppr(self, G, central_node):
         # calcultae Personalized PageRank
@@ -102,70 +100,83 @@ def build_up_graph(rdfs):
 
     
 def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
-    raw_graph_pth = f"subgraphs/raw/{index}.pkl"
-    pruned_ppr_graph_pth = f"subgraphs/pruned_ppr/{index}.pkl"
+    raw_graph_pth = os.path.join(SUBGRAPH_CONFIG["raw_dir"], f"{index}.pkl")
+    pruned_ppr_graph_pth = os.path.join(SUBGRAPH_CONFIG["pruned_ppr_dir"], f"{index}.pkl")
     
-    if rerun == False:
+    if not rerun:
         if os.path.exists(raw_graph_pth) and os.path.exists(pruned_ppr_graph_pth):
             return index, True
 
     try:
         # run the SPARQL query
         rdfs = run_sparql(entry_node)
-        # build the graph
-        G, central_node = build_up_graph(rdfs)
-        # prune the graph
-        ppr_G = ppr.prune_graph(G, central_node)
-        
-        if preprocess_graph_flag:
-            pruned_ppr_preprocessed_graph_pth = f"subgraphs/pruned_ppr_preprocessed/{index}.pkl"
-            # build the ppr_G (generate embeddings) and save the preprocessed graph
-            preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
-            pickle.dump(ppr_G, open(pruned_ppr_preprocessed_graph_pth, "wb"))
-            return index, True
-            
-        # save the raw and pruned graphs
-        pickle.dump(G, open(raw_graph_pth, "wb"))
-        pickle.dump(ppr_G, open(pruned_ppr_graph_pth, "wb"))
-        return index, True
-
     except Exception as e:
-        print(f"Error: {e} occurred for subgraph {index}")
+        print(f"SPARQL query failed for subgraph {index}")
         return index, False
+    
+    # build the graph
+    G, central_node = build_up_graph(rdfs)
+    # prune the graph
+    ppr = PPR_Utils()
+    ppr_G = ppr.prune_graph(G, central_node)
+    
+    if SUBGRAPH_CONFIG["preprocess_graph_flag"]:
+        pruned_ppr_preprocessed_graph_pth = os.path.join(
+            SUBGRAPH_CONFIG["pruned_ppr_init_dir"], 
+            f"{index}.pkl"
+        )
+        # build the ppr_G (generate embeddings) and save the preprocessed graph
+        preprocess_graph(
+            G=ppr_G, 
+            query_text=query, 
+            embedding_model=SUBGRAPH_CONFIG["preprocess_params"]["embedding_model"],
+            top_k_nodes=SUBGRAPH_CONFIG["preprocess_params"]["top_k_nodes"],
+            top_k_edges=SUBGRAPH_CONFIG["preprocess_params"]["top_k_edges"]
+        )
+        pickle.dump(ppr_G, open(pruned_ppr_preprocessed_graph_pth, "wb"))
+        return index, True
+        
+    # save the raw and pruned graphs
+    pickle.dump(G, open(raw_graph_pth, "wb"))
+    pickle.dump(ppr_G, open(pruned_ppr_graph_pth, "wb"))
+    return index, True
+
+    # except Exception as e:
+    #     print(f"Error: {e} occurred for subgraph {index}")
+    #     return index, False
 
 
-if __name__ == "__main__":
-    df = pd.read_csv("query/filtered_questions_63a0f8a06513.csv", index_col=0)
+def main():
+    df = pd.read_csv(os.path.join(QUERY_DIR, f"questions_{TIMESTAMP}_{SEED_SAMPLE_SIZE}_post_processed.csv"), index_col=0)
     df["dbpedia_entities"] = df["dbpedia_entities"].apply(lambda x: eval(x))
     df["placeholders"] = df["placeholders"].apply(lambda x: eval(x))
     if isinstance(df["dbpedia_entities"].iloc[0], dict):
         df["dbpedia_entities_re"] = df["dbpedia_entities"].apply(
-        lambda x: {k: v.split("/")[-1].split("#")[-1] for k, v in x.items()}
-    )
+            lambda x: {k: v.split("/")[-1].split("#")[-1] for k, v in x.items()}
+        )
     else:
         df["dbpedia_entities_re"] = df["dbpedia_entities"].apply(
             lambda x: {k: v for k, v in x.items()}
         )
 
-    try:
-        os.mkdir("subgraphs")
-        os.mkdir("subgraphs/raw")
-        os.mkdir("subgraphs/pruned_ppr")
-        os.mkdir("subgraphs/pruned_ppr_preprocessed")
-    except:
-        pass
+    # Create directories
+    for dir_path in [
+        SUBGRAPH_CONFIG["raw_dir"],
+        SUBGRAPH_CONFIG["pruned_ppr_dir"],
+        SUBGRAPH_CONFIG["pruned_ppr_init_dir"],
+        SUBGRAPH_CONFIG["pruned_ppr_perturbed_dir"]
+    ]:
+        os.makedirs(dir_path, exist_ok=True)
 
     error_subgraph_indices = []
-    ppr = PPR_Utils()
-
     entry_nodes = []
     for entities in df["dbpedia_entities_re"]:
         entry_nodes.append(list(entities.values()))
     queries = df["question"]
     
-    assert len(entry_nodes) == len(queries); print("Length of entry nodes and queries are not equal")
+    assert len(entry_nodes) == len(queries), "Length of entry nodes and queries are not equal"
 
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=PROCESSING_CONFIG["max_workers"]) as executor:
         futures = []
         for index, (entry_node, query) in enumerate(zip(entry_nodes, queries)):
             futures.append(executor.submit(retrieve_subgraph, index, entry_node, query, True))
@@ -176,18 +187,26 @@ if __name__ == "__main__":
             leave=True,
         ):
             index, flag = future.result()
-            if flag == False:
+            if not flag:
                 error_subgraph_indices.append(index)
                 
-    print(f"Lenght of error subgraphs: {len(error_subgraph_indices)}")
-    with open("subgraphs/error_subgraph_indices.txt", "w") as f:
+    print(f"Length of error subgraphs: {len(error_subgraph_indices)}")
+    with open(SUBGRAPH_CONFIG["error_indices_file"], "w") as f:
         for index in error_subgraph_indices:
             f.write(f"{index}\n")
 
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
+    pruned_ppr_graphs = load_all_graphs(SUBGRAPH_CONFIG["pruned_ppr_dir"])
     idxs = []
     for g in pruned_ppr_graphs:
         idxs.append(g["idx"])
         
     df_valid = df.iloc[idxs]
-    df_valid.to_csv("query/filtered_questions_63a0f8a06513_valid.csv", index=False)
+    df_valid.to_csv(os.path.join(QUERY_DIR, f"questions_{TIMESTAMP}_{SEED_SAMPLE_SIZE}_final.csv"), index=False)
+    
+    raw_graphs = load_all_graphs(SUBGRAPH_CONFIG["raw_dir"])
+    avg_statistics_of_G(df, raw_graphs)
+    avg_statistics_of_G(df, pruned_ppr_graphs)
+    
+    
+if __name__ == "__main__":
+    main()

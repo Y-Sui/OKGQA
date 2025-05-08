@@ -5,8 +5,8 @@ from datetime import datetime
 from .generate_query import multi_process_query
 from .post_process import post_process, verify_and_filter_entities, retrieve_wikipedia_pages
 from .calculate_stat import calculate_stats, plot_stats, plot_pan_stats
-from ..config.generate_qa_config import (
-    SEED_SAMPLE_SIZE, RE_SAMPLE, TIMESTAMP_FORMAT,      
+from ..config.config import (
+    SEED_SAMPLE_SIZE, RE_SAMPLE, TIMESTAMP,
     QUERY_DIR, PLOTS_DIR, WIKI_DIR
 )
 
@@ -25,13 +25,12 @@ def main():
     based on the RE_SAMPLE configuration.
     """
     # Configuration
-    timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
     os.makedirs(QUERY_DIR, exist_ok=True)
     os.makedirs(WIKI_DIR, exist_ok=True)
     os.makedirs(PLOTS_DIR, exist_ok=True)
     
     # Generate raw queries
-    raw_dataset_path = os.path.join(QUERY_DIR, f"questions_{timestamp}_{SEED_SAMPLE_SIZE}.csv")
+    raw_dataset_path = os.path.join(QUERY_DIR, f"questions_{TIMESTAMP}_{SEED_SAMPLE_SIZE}_raw.csv")
     
     print(f"Generating queries based on {SEED_SAMPLE_SIZE} seed instructions...")
     if not os.path.exists(raw_dataset_path) or RE_SAMPLE:
@@ -66,7 +65,7 @@ def main():
     # Retrieve wikipedia pages
     print("\nRetrieving wikipedia pages...")
     retrieve_wikipedia_pages(df_final, WIKI_DIR)
-    df_final.to_csv(os.path.join(QUERY_DIR, f"questions_{timestamp}_{SEED_SAMPLE_SIZE}_post_processed.csv"))
+    df_final.to_csv(os.path.join(QUERY_DIR, f"questions_{TIMESTAMP}_{SEED_SAMPLE_SIZE}_post_processed.csv"))
     
     # Calculate statistics
     type_counts, type_naturalness_counts, type_difficulty_counts = calculate_stats(df_final)

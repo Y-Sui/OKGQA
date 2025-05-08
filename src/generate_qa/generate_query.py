@@ -4,7 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..utils import call_llm
-from ..config.generate_qa_config import LLM_CONFIG, PROCESSING_CONFIG, SEED_SAMPLE_SIZE
+from ..config.config import LLM_CONFIG, PROCESSING_CONFIG, SEED_SAMPLE_SIZE
 
 
 def process_query(index):

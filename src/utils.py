@@ -141,7 +141,7 @@ WHERE {{
 """
 
 def run_sparql(entities):
-    sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+    sparql = SPARQLWrapper("https://dbpedia.org/sparql")
 
     if len(entities) == 1:
         query = single_entity_query

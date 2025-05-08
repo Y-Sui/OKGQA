@@ -9,7 +9,7 @@ import nltk
 from tqdm import tqdm
 from nltk.tokenize import sent_tokenize
 from multiprocessing import Pool      
-from ..config.generate_qa_config import WIKI_CONFIG, PROCESSING_CONFIG
+from ..config.config import WIKI_CONFIG, PROCESSING_CONFIG
 
 # if nltk is not installed, install it
 if not nltk.data.find('tokenizers/punkt'):

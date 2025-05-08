@@ -2,11 +2,11 @@ import networkx as nx
 import numpy as np
 import torch
 import torch.nn as nn
+import random
+import os
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, DistilBertForSequenceClassification, AdamW
 from sklearn.model_selection import train_test_split
-import random
-import os
 from src.utils import load_all_graphs
 
 # Set random seeds for reproducibility

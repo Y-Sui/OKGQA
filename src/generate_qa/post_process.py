@@ -5,7 +5,7 @@ import ast
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .retrieve_wikipedia import get_wikipedia_pages
-from ..config.generate_qa_config import HTTP_CONFIG, PROCESSING_CONFIG, QUERY_DIR
+from ..config.config import HTTP_CONFIG, PROCESSING_CONFIG, QUERY_DIR
 
     
 def check_url(url: str) -> bool:

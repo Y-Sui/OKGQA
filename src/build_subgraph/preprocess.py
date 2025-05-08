@@ -4,11 +4,11 @@ import numpy as np
 import pickle
 import pandas as pd
 from openai import OpenAI
-from typing import List, Tuple, Dict, Optional
 from dotenv import load_dotenv
 from src.utils import load_all_graphs
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
+from ..config.config import SUBGRAPH_CONFIG, QUERY_DIR
 
 load_dotenv()
 
@@ -23,17 +23,17 @@ def compute_embeddings(graph, query, model="sbert"):
     Returns:
     - List[float]: The embedding vector.
     """
-    if model == "text-embedding-ada-002":
+    if model in ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-3-ada-2"]: 
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        q_embedding = client.embeddings.create(input=query, model=model).data.embedding
+        q_embedding = client.embeddings.create(input=query, model=model).data[0].embedding
         
         for node in graph.nodes:
-            embedding = client.embeddings.create(input=node, model=model).data.embedding
+            embedding = client.embeddings.create(input=node, model=model).data[0].embedding
             graph.nodes[node]['embedding'] = embedding
             
         for u, v, data in graph.edges(data=True):
             edge_text = data.get('relation', f"{u}->{v}")
-            embedding = client.embeddings.create(input=edge_text, model=model).data.embedding
+            embedding = client.embeddings.create(input=edge_text, model=model).data[0].embedding
             graph.edges[u, v]['embedding'] = embedding
             
     elif model == "sbert":
@@ -128,19 +128,28 @@ def preprocess_graph(
     
 def main():
     try:
-        os.mkdir("subgraphs/pruned_ppr_preprocessed")
+        os.makedirs(SUBGRAPH_CONFIG["pruned_ppr_init_dir"], exist_ok=True)
     except:
         pass
     
-    df = pd.read_csv("query/filtered_questions_63a0f8a06513_valid.csv")
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
+    df = pd.read_csv(os.path.join(QUERY_DIR, "filtered_questions_63a0f8a06513_valid.csv"))
+    pruned_ppr_graphs = load_all_graphs(SUBGRAPH_CONFIG["pruned_ppr_dir"])
     graphs = [item['graph'] for item in pruned_ppr_graphs]
     idxs = [item['idx'] for item in pruned_ppr_graphs]
     questions = df["question"]
     
     for i, (query, G) in tqdm(enumerate(zip(questions, graphs)), desc="preprocessing graphs", total=len(questions)):
-        preprocess_graph(G=G, query_text=query, embedding_model="sbert", top_k_nodes=10, top_k_edges=10)
-        pickle.dump(G, open(f"subgraphs/pruned_ppr_preprocessed/{idxs[i]}.pkl", "wb"))
+        preprocess_graph(
+            G=G, 
+            query_text=query, 
+            embedding_model=SUBGRAPH_CONFIG["preprocess_params"]["embedding_model"],
+            top_k_nodes=SUBGRAPH_CONFIG["preprocess_params"]["top_k_nodes"],
+            top_k_edges=SUBGRAPH_CONFIG["preprocess_params"]["top_k_edges"]
+        )
+        pickle.dump(
+            G, 
+            open(os.path.join(SUBGRAPH_CONFIG["pruned_ppr_init_dir"], f"{idxs[i]}.pkl"), "wb")
+        )
         
 if __name__ == "__main__":
     main()

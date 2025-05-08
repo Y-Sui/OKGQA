@@ -1,15 +1,17 @@
 import os
-
+from datetime import datetime
 # Base directories
 BASE_DIR = "/mnt/250T_ceph/tristanysui/okgqa"
 WIKI_DIR = os.path.join(BASE_DIR, "wikipedia")
 PLOTS_DIR = os.path.join(BASE_DIR, "plots")
 QUERY_DIR = os.path.join(BASE_DIR, "queries")
+SUBGRAPH_DIR = os.path.join(BASE_DIR, "subgraphs")
 
 # Generation parameters
 SEED_SAMPLE_SIZE = 5
 RE_SAMPLE = False
 TIMESTAMP_FORMAT = '%Y%m%d'
+TIMESTAMP = datetime.now().strftime(TIMESTAMP_FORMAT)
 
 # LLM parameters
 LLM_CONFIG = {
@@ -42,4 +44,25 @@ WIKI_CONFIG = {
 PROCESSING_CONFIG = {
     "max_workers": os.cpu_count(),
     "wiki_workers": max(1, os.cpu_count() - 1)
+}
+
+# Subgraph parameters
+SUBGRAPH_CONFIG = {
+    "raw_dir": os.path.join(SUBGRAPH_DIR, "raw"),
+    "pruned_ppr_dir": os.path.join(SUBGRAPH_DIR, "pruned_ppr"),
+    "pruned_ppr_init_dir": os.path.join(SUBGRAPH_DIR, "pruned_ppr_init"),
+    "error_indices_file": os.path.join(SUBGRAPH_DIR, "error_subgraph_indices.txt"),
+    "preprocess_graph_flag": True,
+    "ppr_params": {
+        "alpha": 0.85,
+        "tol": 1e-6,
+        "max_iter": 100,
+        "threshold": 1e-5
+    },
+    "preprocess_params": {
+        "top_k_nodes": 10,
+        "top_k_edges": 10,
+        "default_edge_cost": 1.0,
+        "embedding_model": "text-embedding-3-small"
+    }
 }
