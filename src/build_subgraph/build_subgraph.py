@@ -111,15 +111,22 @@ def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
         # run the SPARQL query
         rdfs = run_sparql(entry_node)
     except Exception as e:
-        print(f"SPARQL query failed for subgraph {index}")
+        print(f"SPARQL query failed for subgraph {index}: {str(e)}")
         return index, False
     
     # build the graph
     G, central_node = build_up_graph(rdfs)
+    print(f"Built graph for subgraph {index}: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+
     # prune the graph
     ppr = PPR_Utils()
     ppr_G = ppr.prune_graph(G, central_node)
+    print(f"Pruned graph for subgraph {index}: {ppr_G.number_of_nodes()} nodes, {ppr_G.number_of_edges()} edges")
     
+    # save the raw and pruned graphs
+    pickle.dump(G, open(raw_graph_pth, "wb"))
+    pickle.dump(ppr_G, open(pruned_ppr_graph_pth, "wb"))
+
     if SUBGRAPH_CONFIG["preprocess_graph_flag"]:
         pruned_ppr_preprocessed_graph_pth = os.path.join(
             SUBGRAPH_CONFIG["pruned_ppr_init_dir"], 
@@ -136,14 +143,7 @@ def retrieve_subgraph(index: int, entry_node: list, query: str, rerun=False):
         pickle.dump(ppr_G, open(pruned_ppr_preprocessed_graph_pth, "wb"))
         return index, True
         
-    # save the raw and pruned graphs
-    pickle.dump(G, open(raw_graph_pth, "wb"))
-    pickle.dump(ppr_G, open(pruned_ppr_graph_pth, "wb"))
     return index, True
-
-    # except Exception as e:
-    #     print(f"Error: {e} occurred for subgraph {index}")
-    #     return index, False
 
 
 def main():
@@ -164,7 +164,6 @@ def main():
         SUBGRAPH_CONFIG["raw_dir"],
         SUBGRAPH_CONFIG["pruned_ppr_dir"],
         SUBGRAPH_CONFIG["pruned_ppr_init_dir"],
-        SUBGRAPH_CONFIG["pruned_ppr_perturbed_dir"]
     ]:
         os.makedirs(dir_path, exist_ok=True)
 
@@ -199,13 +198,13 @@ def main():
     idxs = []
     for g in pruned_ppr_graphs:
         idxs.append(g["idx"])
+    raw_graphs = load_all_graphs(SUBGRAPH_CONFIG["raw_dir"])
+    # avg_statistics_of_G(df, raw_graphs)
+    avg_statistics_of_G(df, pruned_ppr_graphs)
         
     df_valid = df.iloc[idxs]
     df_valid.to_csv(os.path.join(QUERY_DIR, f"questions_{TIMESTAMP}_{SEED_SAMPLE_SIZE}_final.csv"), index=False)
     
-    raw_graphs = load_all_graphs(SUBGRAPH_CONFIG["raw_dir"])
-    avg_statistics_of_G(df, raw_graphs)
-    avg_statistics_of_G(df, pruned_ppr_graphs)
     
     
 if __name__ == "__main__":

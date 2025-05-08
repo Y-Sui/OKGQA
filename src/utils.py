@@ -161,7 +161,7 @@ def run_sparql(entities):
     return results
 
 
-def load_all_graphs(raw_graph_dir, sample_size=None):
+def load_all_graphs(raw_graph_dir:str, sample_size:int=None):
     """
     Loads all pickle graph files from the specified directory.
 

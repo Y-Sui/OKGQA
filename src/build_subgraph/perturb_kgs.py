@@ -7,7 +7,8 @@ import pickle
 from tqdm import tqdm
 from typing import Callable, List, Optional
 from src.utils import load_all_graphs
-from .score_function_sG import TripleScorer # use score_function_sG.py in the same directory
+from .score_function_sG import TripleScorer, train_link_prediction_model # use score_function_sG.py in the same directory
+from ..config.config import SUBGRAPH_CONFIG
 
 def compute_ATS(
     G: nx.DiGraph,
@@ -441,24 +442,32 @@ if __name__ == "__main__":
     # ----------------------------
     # Load data and preprocess
     # ----------------------------
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/", sample_size=None)
+    pruned_ppr_graphs = load_all_graphs(SUBGRAPH_CONFIG["pruned_ppr_dir"], sample_size=None)
+    pruned_ppr_graphs = [g["graph"] for g in pruned_ppr_graphs]
     G_all = nx.compose_all(pruned_ppr_graphs)
+    
+    # ----------------------------
+    # Train the Link Prediction Model
+    # ----------------------------
+    if not os.path.exists(SUBGRAPH_CONFIG["link_prediction_model_path"]) or SUBGRAPH_CONFIG["re_train_link_prediction_model"]:
+        print("Training the link prediction model...")
+        tokenizer, model = train_link_prediction_model(G_all)
     
     # ----------------------------
     # Initialize the Scoring Function
     # ----------------------------
     print("Initializing the scoring function...")
-    scorer = TripleScorer(model_path="/data/yuansui/link_prediction_model")
+    scorer = TripleScorer(model_path=SUBGRAPH_CONFIG["link_prediction_model_path"])
     
     # ----------------------------
     # Initialize the Metrics Dictionary
     # ----------------------------
     perturbation_levels = [0]
     try:
-        os.mkdir("perturbed_graphs")
+        os.mkdir(SUBGRAPH_CONFIG["perturbed_graphs_dir"])
     except FileExistsError:
         pass
-    save_directory = "perturbed_graphs"
+    save_directory = os.path.join(SUBGRAPH_CONFIG["perturbed_graphs_dir"], "perturbed_graphs")
     
     comprehensive_metrics = {
         'Perturbation_Level': [],
@@ -601,11 +610,11 @@ if __name__ == "__main__":
     # Save Comprehensive Metrics
     # ----------------------------
     comprehensive_metrics_df = pd.DataFrame(comprehensive_metrics)
-    metrics_save_path = "comprehensive_perturb_metrics.csv"
+    metrics_save_path = os.path.join(SUBGRAPH_CONFIG["perturbed_graphs_dir"], "comprehensive_perturb_metrics.csv")
     
     grouping_columns = ['Method', 'Perturbation_Level']
     average_metrics = comprehensive_metrics_df.groupby(grouping_columns).mean().reset_index()
-    average_metrics.to_csv(f"{save_directory}/{metrics_save_path}", index=False)
+    average_metrics.to_csv(metrics_save_path, index=False)
     print(f"\nSaved comprehensive metrics to '{metrics_save_path}'")
     
     # Optionally, display the entire metrics dataframe

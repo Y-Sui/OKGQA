@@ -1,9 +1,3 @@
-Freebase
-okgqa/subgraphs
-okgqa/generation
-okgqa/wikipedia
-okgqa/perturbed_graphs
-okgqa/query
 .env
 ARCHIVE
 api.key

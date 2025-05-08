@@ -3,20 +3,20 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from src.utils import load_all_graphs
+from collections import Counter
 
-
-def calculate_statistics(G: nx.DiGraph):
+def calculate_statistics(G: nx.DiGraph, print_flag: bool = True):
     """_summary_
 
     Args:
        G (nx.DiGraph): _description_
     """
 
-    # statistics
-    print("Graph Statistics:")
-
-    print(f"Number of nodes: {G.number_of_nodes()}")
-    print(f"Number of edges: {G.number_of_edges()}")
+    if print_flag:
+        # statistics
+        print("Graph Statistics:")
+        print(f"Number of nodes: {G.number_of_nodes()}")
+        print(f"Number of edges: {G.number_of_edges()}")
 
     tokenizer = tiktoken.encoding_for_model("gpt-4o")
 
@@ -31,80 +31,94 @@ def calculate_statistics(G: nx.DiGraph):
     out_degrees = [d for n, d in G.out_degree()]
     total_degrees = [d for n, d in G.degree()]
 
-    print(f"Average in-degree: {sum(in_degrees) / len(in_degrees):.2f}")
-    print(f"Average out-degree: {sum(out_degrees) / len(out_degrees):.2f}")
-    print(f"Average total degree: {sum(total_degrees) / len(total_degrees):.2f}")
+    if print_flag:
+        print(f"Average in-degree: {sum(in_degrees) / len(in_degrees):.2f}")
+        print(f"Average out-degree: {sum(out_degrees) / len(out_degrees):.2f}")
+        print(f"Average total degree: {sum(total_degrees) / len(total_degrees):.2f}")
+        
     avg_in_degree = sum(in_degrees) / len(in_degrees)
     avg_out_degree = sum(out_degrees) / len(out_degrees)
     avg_total_degree = sum(total_degrees) / len(total_degrees)
 
     # Most common relations
-    relations = [data['label'] for u, v, data in G.edges(data=True)]
+    relations = [data['relation'] for u, v, data in G.edges(data=True)]
     common_relations = Counter(relations).most_common(5)
-    print("\nTop 5 most common relations:")
-    for relation, count in common_relations:
-        print(f"{relation}: {count}")
+    
+    if print_flag:
+        print("\nTop 5 most common relations:")
+        for relation, count in common_relations:
+            print(f"{relation}: {count}")
 
     # Number of connected components (for undirected version of the graph)
     undirected_G = G.to_undirected()
     num_components = nx.number_connected_components(undirected_G)
-    print(f"\nNumber of connected components: {num_components}")
+    if print_flag:
+        print(f"\nNumber of connected components: {num_components}")
 
     # Largest connected component
     largest_cc = max(nx.connected_components(undirected_G), key=len)
-    print(f"Size of the largest connected component: {len(largest_cc)}")
+    if print_flag:
+        print(f"Size of the largest connected component: {len(largest_cc)}")
 
     # Check if the graph is a DAG (Directed Acyclic Graph)
     is_dag = nx.is_directed_acyclic_graph(G)
-    print(f"\nIs the graph a DAG? {is_dag}")
-    print(f"Is the graph strongly connected? {nx.is_strongly_connected(G)}")
-    print(f"Is the graph weakly connected? {nx.is_weakly_connected(G)}")
+    if print_flag:
+        print(f"\nIs the graph a DAG? {is_dag}")
+        print(f"Is the graph strongly connected? {nx.is_strongly_connected(G)}")
+        print(f"Is the graph weakly connected? {nx.is_weakly_connected(G)}")
 
     # Calculate the diameter of the largest connected component
     largest_cc_subgraph = undirected_G.subgraph(largest_cc)
     diameter = nx.diameter(largest_cc_subgraph)
-    print(f"Diameter of the largest connected component: {diameter}")
+    if print_flag:
+        print(f"Diameter of the largest connected component: {diameter}")
 
     # Calculate the centrality of the top 5 nodes
-    print("\nCentrality Measures (for top 5 nodes):")
-    in_degree_centrality = nx.in_degree_centrality(G)
-    print("Top 5 nodes by In-Degree Centrality:")
-    for node, centrality in sorted(
-        in_degree_centrality.items(), key=lambda x: x[1], reverse=True
-    )[:5]:
-        print(f"{node}: {centrality:.4f}")
+    if print_flag:
+        print("\nCentrality Measures (for top 5 nodes):")
+        print("Top 5 nodes by In-Degree Centrality:")
+        in_degree_centrality = nx.in_degree_centrality(G)
+        for node, centrality in sorted(
+            in_degree_centrality.items(), key=lambda x: x[1], reverse=True
+        )[:5]:
+            print(f"{node}: {centrality:.4f}")
 
-    out_degree_centrality = nx.out_degree_centrality(G)
-    print("\nTop 5 nodes by Out-Degree Centrality:")
-    for node, centrality in sorted(
-        out_degree_centrality.items(), key=lambda x: x[1], reverse=True
-    )[:5]:
-        print(f"{node}: {centrality:.4f}")
+    if print_flag:
+        print("\nTop 5 nodes by Out-Degree Centrality:")
+        out_degree_centrality = nx.out_degree_centrality(G)
+        for node, centrality in sorted(
+            out_degree_centrality.items(), key=lambda x: x[1], reverse=True
+        )[:5]:
+            print(f"{node}: {centrality:.4f}")
 
     # Betweenness Centrality (can be slow for large graphs)
     betweenness_centrality = nx.betweenness_centrality(G)
-    print("\nTop 5 nodes by Betweenness Centrality:")
-    for node, centrality in sorted(
-        betweenness_centrality.items(), key=lambda x: x[1], reverse=True
-    )[:5]:
-        print(f"{node}: {centrality:.4f}")
+    if print_flag:
+        print("\nTop 5 nodes by Betweenness Centrality:")   
+        for node, centrality in sorted(
+            betweenness_centrality.items(), key=lambda x: x[1], reverse=True
+        )[:5]:
+            print(f"{node}: {centrality:.4f}")
 
     # Clustering Coefficient
     clustering_coefficient = nx.average_clustering(G)
-    print(f"\nAverage Clustering Coefficient: {clustering_coefficient:.4f}")
+    if print_flag:
+        print(f"\nAverage Clustering Coefficient: {clustering_coefficient:.4f}")
 
     # Shortest Paths
-    print("\nShortest Path Statistics:")
-    shortest_paths = dict(nx.all_pairs_shortest_path_length(G))
-    path_lengths = [
-        length for paths in shortest_paths.values() for length in paths.values()
-    ]
-    print(f"Average Shortest Path Length: {np.mean(path_lengths):.2f}")
-    print(f"Maximum Shortest Path Length (Diameter): {max(path_lengths)}")
+    if print_flag:
+        print("\nShortest Path Statistics:")
+        shortest_paths = dict(nx.all_pairs_shortest_path_length(G))
+        path_lengths = [
+            length for paths in shortest_paths.values() for length in paths.values()
+        ]
+        print(f"Average Shortest Path Length: {np.mean(path_lengths):.2f}")
+        print(f"Maximum Shortest Path Length (Diameter): {max(path_lengths)}")
 
     # Density
     density = nx.density(G)
-    # print(f"\nGraph Density: {density:.4f}")
+    if print_flag:
+        print(f"\nGraph Density: {density:.4f}")
 
     return (
         tokens,
@@ -122,7 +136,7 @@ def avg_statistics_of_G(df, Graphs):
     value = [0 for _ in range(8)]
     for G in Graphs:
         # calculate the average tokens, average nodes, average edges, average in-degree, out-degree, total-degree, average clustering coefficency, average graph density
-        stats = calculate_statistics(G)
+        stats = calculate_statistics(G["graph"], print_flag=False)
         value = [v + s for v, s in zip(value, stats)]
 
     avg_value = [v / len(df) for v in value]

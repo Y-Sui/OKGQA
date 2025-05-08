@@ -52,7 +52,8 @@ SUBGRAPH_CONFIG = {
     "pruned_ppr_dir": os.path.join(SUBGRAPH_DIR, "pruned_ppr"),
     "pruned_ppr_init_dir": os.path.join(SUBGRAPH_DIR, "pruned_ppr_init"),
     "error_indices_file": os.path.join(SUBGRAPH_DIR, "error_subgraph_indices.txt"),
-    "preprocess_graph_flag": True,
+    "perturbed_graphs_dir": os.path.join(SUBGRAPH_DIR, "perturbed_graphs"),
+    "preprocess_graph_flag": False,
     "ppr_params": {
         "alpha": 0.85,
         "tol": 1e-6,
@@ -64,5 +65,7 @@ SUBGRAPH_CONFIG = {
         "top_k_edges": 10,
         "default_edge_cost": 1.0,
         "embedding_model": "text-embedding-3-small"
-    }
+    },
+    "link_prediction_model_path": os.path.join(SUBGRAPH_DIR, "link_prediction_model"),
+    "re_train_link_prediction_model": True
 }

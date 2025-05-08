@@ -5,9 +5,12 @@ import torch.nn as nn
 import random
 import os
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer, DistilBertForSequenceClassification, AdamW
+from torch.optim import AdamW
+from transformers import AutoTokenizer, DistilBertForSequenceClassification
 from sklearn.model_selection import train_test_split
 from src.utils import load_all_graphs
+from ..config.config import SUBGRAPH_CONFIG
+
 
 # Set random seeds for reproducibility
 def set_seed(seed: int = 42):
@@ -108,7 +111,7 @@ def prepare_data(G: nx.DiGraph, tokenizer, negative_ratio=1.0, max_samples=None)
 # 2. Model Training
 # ============================
 
-def train_model(G: nx.DiGraph, model_save_path: str = "link_prediction_model"):
+def train_model(G: nx.DiGraph, model_save_path: str = SUBGRAPH_CONFIG["link_prediction_model_path"]):
     """
     Train a DistilBERT model for link prediction on the given knowledge graph.
 
@@ -143,7 +146,7 @@ def train_model(G: nx.DiGraph, model_save_path: str = "link_prediction_model"):
     model.to(device)
     
     # Define optimizer and loss
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    optimizer = AdamW(model.parameters(), lr=2e-5, weight_decay=0.01)
     loss_fn = nn.CrossEntropyLoss()
     
     # Training loop
@@ -201,7 +204,8 @@ class TripleScorer:
     """
     Scoring function s_G that uses a trained language model to score triples.
     """
-    def __init__(self, model_path: str = "link_prediction_model"):
+    def __init__(self, model_path: str = SUBGRAPH_CONFIG["link_prediction_model_path"]):
+        os.makedirs(model_path, exist_ok=True)
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = DistilBertForSequenceClassification.from_pretrained(model_path)
@@ -240,19 +244,24 @@ class TripleScorer:
             # Assuming label 1 is the positive class
             prob_positive = probabilities[:, 1].item()
         return prob_positive
+ 
+ 
+def train_link_prediction_model(G: nx.DiGraph):
+    tokenizer, model = train_model(G, model_save_path=SUBGRAPH_CONFIG["link_prediction_model_path"])
+    return tokenizer, model
     
     
 if __name__ == "__main__":
     # ----------------------------
     # Load data and preprocess
     # ----------------------------
-    raw_graphs = load_all_graphs("subgraphs/raw/")
-    pruned_ppr_graphs = load_all_graphs("subgraphs/pruned_ppr/")
+    pruned_ppr_graphs = load_all_graphs(SUBGRAPH_CONFIG["pruned_ppr_dir"])
+    pruned_ppr_graphs = [g["graph"] for g in pruned_ppr_graphs]
     G_all = nx.compose_all(pruned_ppr_graphs)
     
     # ----------------------------
     # Train the Link Prediction Model
     # ----------------------------
-    if not os.path.exists("/data/yuansui/link_prediction_model"):
+    if not os.path.exists(SUBGRAPH_CONFIG["link_prediction_model_path"]):
         print("Training the link prediction model...")
-        tokenizer, model = train_model(G_all, model_save_path="/data/yuansui/link_prediction_model")
+        tokenizer, model = train_link_prediction_model(G_all)
